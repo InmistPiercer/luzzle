@@ -1,0 +1,2523 @@
+[
+{
+"id": "p_a",
+"t": "pre",
+"main": "a-",
+"zh": "无，非",
+"vars": [
+"a",
+"an"
+]
+},
+{
+"id": "p_ab",
+"t": "pre",
+"main": "ab-",
+"zh": "离开",
+"vars": [
+"ab",
+"abs"
+]
+},
+{
+"id": "p_ante",
+"t": "pre",
+"main": "ante-",
+"zh": "在前",
+"vars": [
+"ante"
+]
+},
+{
+"id": "p_anti",
+"t": "pre",
+"main": "anti-",
+"zh": "反对",
+"vars": [
+"anti",
+"ant"
+]
+},
+{
+"id": "p_auto",
+"t": "pre",
+"main": "auto-",
+"zh": "自己",
+"vars": [
+"auto"
+]
+},
+{
+"id": "p_bene",
+"t": "pre",
+"main": "bene-",
+"zh": "好",
+"vars": [
+"bene"
+]
+},
+{
+"id": "p_bi",
+"t": "pre",
+"main": "bi-",
+"zh": "二，双",
+"vars": [
+"bi"
+]
+},
+{
+"id": "p_circum",
+"t": "pre",
+"main": "circum-",
+"zh": "周围",
+"vars": [
+"circum"
+]
+},
+{
+"id": "p_contra",
+"t": "pre",
+"main": "contra-",
+"zh": "相反",
+"vars": [
+"contra",
+"contro",
+"counter"
+]
+},
+{
+"id": "p_dia",
+"t": "pre",
+"main": "dia-",
+"zh": "穿过",
+"vars": [
+"dia"
+]
+},
+{
+"id": "p_en",
+"t": "pre",
+"main": "en-",
+"zh": "使…",
+"vars": [
+"en",
+"em"
+]
+},
+{
+"id": "p_epi",
+"t": "pre",
+"main": "epi-",
+"zh": "在上",
+"vars": [
+"epi"
+]
+},
+{
+"id": "p_eu",
+"t": "pre",
+"main": "eu-",
+"zh": "好",
+"vars": [
+"eu"
+]
+},
+{
+"id": "p_extra",
+"t": "pre",
+"main": "extra-",
+"zh": "在外",
+"vars": [
+"extra"
+]
+},
+{
+"id": "p_fore",
+"t": "pre",
+"main": "fore-",
+"zh": "在前",
+"vars": [
+"fore"
+]
+},
+{
+"id": "p_hetero",
+"t": "pre",
+"main": "hetero-",
+"zh": "异",
+"vars": [
+"hetero"
+]
+},
+{
+"id": "p_homo",
+"t": "pre",
+"main": "homo-",
+"zh": "同",
+"vars": [
+"homo"
+]
+},
+{
+"id": "p_hyper",
+"t": "pre",
+"main": "hyper-",
+"zh": "超过",
+"vars": [
+"hyper"
+]
+},
+{
+"id": "p_hypo",
+"t": "pre",
+"main": "hypo-",
+"zh": "在下，不足",
+"vars": [
+"hypo"
+]
+},
+{
+"id": "p_infra",
+"t": "pre",
+"main": "infra-",
+"zh": "在下",
+"vars": [
+"infra"
+]
+},
+{
+"id": "p_intra",
+"t": "pre",
+"main": "intra-",
+"zh": "在内",
+"vars": [
+"intra",
+"intro"
+]
+},
+{
+"id": "p_macro",
+"t": "pre",
+"main": "macro-",
+"zh": "大",
+"vars": [
+"macro"
+]
+},
+{
+"id": "p_mal",
+"t": "pre",
+"main": "mal-",
+"zh": "坏",
+"vars": [
+"mal",
+"male"
+]
+},
+{
+"id": "p_micro",
+"t": "pre",
+"main": "micro-",
+"zh": "微小",
+"vars": [
+"micro"
+]
+},
+{
+"id": "p_mid",
+"t": "pre",
+"main": "mid-",
+"zh": "中间",
+"vars": [
+"mid"
+]
+},
+{
+"id": "p_mono",
+"t": "pre",
+"main": "mono-",
+"zh": "单一",
+"vars": [
+"mono"
+]
+},
+{
+"id": "p_multi",
+"t": "pre",
+"main": "multi-",
+"zh": "多",
+"vars": [
+"multi"
+]
+},
+{
+"id": "p_neo",
+"t": "pre",
+"main": "neo-",
+"zh": "新",
+"vars": [
+"neo"
+]
+},
+{
+"id": "p_non",
+"t": "pre",
+"main": "non-",
+"zh": "非",
+"vars": [
+"non"
+]
+},
+{
+"id": "p_ob",
+"t": "pre",
+"main": "ob-",
+"zh": "反对；朝向",
+"vars": [
+"ob",
+"oc",
+"of",
+"op"
+]
+},
+{
+"id": "p_omni",
+"t": "pre",
+"main": "omni-",
+"zh": "全",
+"vars": [
+"omni"
+]
+},
+{
+"id": "p_out",
+"t": "pre",
+"main": "out-",
+"zh": "超过；向外",
+"vars": [
+"out"
+]
+},
+{
+"id": "p_over",
+"t": "pre",
+"main": "over-",
+"zh": "过度；在上",
+"vars": [
+"over"
+]
+},
+{
+"id": "p_pan",
+"t": "pre",
+"main": "pan-",
+"zh": "全",
+"vars": [
+"pan"
+]
+},
+{
+"id": "p_para",
+"t": "pre",
+"main": "para-",
+"zh": "旁；类似",
+"vars": [
+"para"
+]
+},
+{
+"id": "p_per",
+"t": "pre",
+"main": "per-",
+"zh": "贯穿，彻底",
+"vars": [
+"per"
+]
+},
+{
+"id": "p_peri",
+"t": "pre",
+"main": "peri-",
+"zh": "周围",
+"vars": [
+"peri"
+]
+},
+{
+"id": "p_poly",
+"t": "pre",
+"main": "poly-",
+"zh": "多",
+"vars": [
+"poly"
+]
+},
+{
+"id": "p_post",
+"t": "pre",
+"main": "post-",
+"zh": "在后",
+"vars": [
+"post"
+]
+},
+{
+"id": "p_pseudo",
+"t": "pre",
+"main": "pseudo-",
+"zh": "伪",
+"vars": [
+"pseudo"
+]
+},
+{
+"id": "p_retro",
+"t": "pre",
+"main": "retro-",
+"zh": "向后",
+"vars": [
+"retro"
+]
+},
+{
+"id": "p_se",
+"t": "pre",
+"main": "se-",
+"zh": "分开",
+"vars": [
+"se"
+]
+},
+{
+"id": "p_semi",
+"t": "pre",
+"main": "semi-",
+"zh": "半",
+"vars": [
+"semi"
+]
+},
+{
+"id": "p_super",
+"t": "pre",
+"main": "super-",
+"zh": "超；在上",
+"vars": [
+"super",
+"sur"
+]
+},
+{
+"id": "p_syn",
+"t": "pre",
+"main": "syn-",
+"zh": "共同",
+"vars": [
+"syn",
+"sym"
+]
+},
+{
+"id": "p_tele",
+"t": "pre",
+"main": "tele-",
+"zh": "远",
+"vars": [
+"tele"
+]
+},
+{
+"id": "p_tri",
+"t": "pre",
+"main": "tri-",
+"zh": "三",
+"vars": [
+"tri"
+]
+},
+{
+"id": "p_ultra",
+"t": "pre",
+"main": "ultra-",
+"zh": "极端",
+"vars": [
+"ultra"
+]
+},
+{
+"id": "p_under",
+"t": "pre",
+"main": "under-",
+"zh": "在下；不足",
+"vars": [
+"under"
+]
+},
+{
+"id": "p_uni",
+"t": "pre",
+"main": "uni-",
+"zh": "一",
+"vars": [
+"uni"
+]
+},
+{
+"id": "p_up",
+"t": "pre",
+"main": "up-",
+"zh": "向上",
+"vars": [
+"up"
+]
+},
+{
+"id": "p_with",
+"t": "pre",
+"main": "with-",
+"zh": "向后；相反",
+"vars": [
+"with"
+]
+},
+{
+"id": "s_age",
+"t": "suf",
+"main": "-age",
+"zh": "n. 集合；行为",
+"vars": [
+"age"
+]
+},
+{
+"id": "s_ar",
+"t": "suf",
+"main": "-ar",
+"zh": "adj. …的",
+"vars": [
+"ar"
+]
+},
+{
+"id": "s_ary",
+"t": "suf",
+"main": "-ary",
+"zh": "adj. …的；n. 场所",
+"vars": [
+"ary"
+]
+},
+{
+"id": "s_cy",
+"t": "suf",
+"main": "-cy",
+"zh": "n. 性质，状态",
+"vars": [
+"cy",
+"acy"
+]
+},
+{
+"id": "s_dom",
+"t": "suf",
+"main": "-dom",
+"zh": "n. 领域；状态",
+"vars": [
+"dom"
+]
+},
+{
+"id": "s_ee",
+"t": "suf",
+"main": "-ee",
+"zh": "n. 受…者",
+"vars": [
+"ee"
+]
+},
+{
+"id": "s_eer",
+"t": "suf",
+"main": "-eer",
+"zh": "n. 从事…者",
+"vars": [
+"eer"
+]
+},
+{
+"id": "s_en",
+"t": "suf",
+"main": "-en",
+"zh": "v. 使…",
+"vars": [
+"en"
+]
+},
+{
+"id": "s_ery",
+"t": "suf",
+"main": "-ery",
+"zh": "n. 场所；行为",
+"vars": [
+"ery",
+"ry"
+]
+},
+{
+"id": "s_ese",
+"t": "suf",
+"main": "-ese",
+"zh": "n. …人；…语",
+"vars": [
+"ese"
+]
+},
+{
+"id": "s_ess",
+"t": "suf",
+"main": "-ess",
+"zh": "n. 女性",
+"vars": [
+"ess"
+]
+},
+{
+"id": "s_fy",
+"t": "suf",
+"main": "-fy",
+"zh": "v. 使…",
+"vars": [
+"fy",
+"ify"
+]
+},
+{
+"id": "s_hood",
+"t": "suf",
+"main": "-hood",
+"zh": "n. 身份，时期",
+"vars": [
+"hood"
+]
+},
+{
+"id": "s_ian",
+"t": "suf",
+"main": "-ian",
+"zh": "adj. …的；n. …人",
+"vars": [
+"ian",
+"an"
+]
+},
+{
+"id": "s_ic",
+"t": "suf",
+"main": "-ic",
+"zh": "adj. …的",
+"vars": [
+"ic"
+]
+},
+{
+"id": "s_ical",
+"t": "suf",
+"main": "-ical",
+"zh": "adj. …的",
+"vars": [
+"ical"
+]
+},
+{
+"id": "s_ics",
+"t": "suf",
+"main": "-ics",
+"zh": "n. …学",
+"vars": [
+"ics"
+]
+},
+{
+"id": "s_ile",
+"t": "suf",
+"main": "-ile",
+"zh": "adj. 能…的",
+"vars": [
+"ile"
+]
+},
+{
+"id": "s_ine",
+"t": "suf",
+"main": "-ine",
+"zh": "adj. …的",
+"vars": [
+"ine"
+]
+},
+{
+"id": "s_ing",
+"t": "suf",
+"main": "-ing",
+"zh": "n. 行为",
+"vars": [
+"ing"
+]
+},
+{
+"id": "s_ish",
+"t": "suf",
+"main": "-ish",
+"zh": "adj. 似…的",
+"vars": [
+"ish"
+]
+},
+{
+"id": "s_ism",
+"t": "suf",
+"main": "-ism",
+"zh": "n. 主义；行为",
+"vars": [
+"ism"
+]
+},
+{
+"id": "s_ist",
+"t": "suf",
+"main": "-ist",
+"zh": "n. …者",
+"vars": [
+"ist"
+]
+},
+{
+"id": "s_ite",
+"t": "suf",
+"main": "-ite",
+"zh": "n. …人，…物",
+"vars": [
+"ite"
+]
+},
+{
+"id": "s_let",
+"t": "suf",
+"main": "-let",
+"zh": "n. 小",
+"vars": [
+"let"
+]
+},
+{
+"id": "s_like",
+"t": "suf",
+"main": "-like",
+"zh": "adj. 似…的",
+"vars": [
+"like"
+]
+},
+{
+"id": "s_ory",
+"t": "suf",
+"main": "-ory",
+"zh": "adj. …的；n. 场所",
+"vars": [
+"ory",
+"atory"
+]
+},
+{
+"id": "s_ous",
+"t": "suf",
+"main": "-ous",
+"zh": "adj. …的",
+"vars": [
+"ous",
+"ious",
+"eous"
+]
+},
+{
+"id": "s_ship",
+"t": "suf",
+"main": "-ship",
+"zh": "n. 状态；身份",
+"vars": [
+"ship"
+]
+},
+{
+"id": "s_some",
+"t": "suf",
+"main": "-some",
+"zh": "adj. 易…的",
+"vars": [
+"some"
+]
+},
+{
+"id": "s_th",
+"t": "suf",
+"main": "-th",
+"zh": "n. 状态",
+"vars": [
+"th"
+]
+},
+{
+"id": "s_tude",
+"t": "suf",
+"main": "-tude",
+"zh": "n. 状态",
+"vars": [
+"tude"
+]
+},
+{
+"id": "s_ure",
+"t": "suf",
+"main": "-ure",
+"zh": "n. 行为，结果",
+"vars": [
+"ure"
+]
+},
+{
+"id": "s_ward",
+"t": "suf",
+"main": "-ward",
+"zh": "adv. 向…",
+"vars": [
+"ward",
+"wards"
+]
+},
+{
+"id": "s_wise",
+"t": "suf",
+"main": "-wise",
+"zh": "adv. 方式",
+"vars": [
+"wise"
+]
+},
+{
+"id": "s_y",
+"t": "suf",
+"main": "-y",
+"zh": "adj. …的；n. 状态",
+"vars": [
+"y"
+]
+},
+{
+"id": "r_act",
+"t": "root",
+"main": "act",
+"zh": "做，行动",
+"vars": [
+"act"
+]
+},
+{
+"id": "r_ag",
+"t": "root",
+"main": "ag",
+"zh": "做；驱动",
+"vars": [
+"ag",
+"ig"
+]
+},
+{
+"id": "r_alter",
+"t": "root",
+"main": "alter",
+"zh": "其他",
+"vars": [
+"alter",
+"alien"
+]
+},
+{
+"id": "r_am",
+"t": "root",
+"main": "am",
+"zh": "爱",
+"vars": [
+"am",
+"amor"
+]
+},
+{
+"id": "r_anim",
+"t": "root",
+"main": "anim",
+"zh": "生命；心",
+"vars": [
+"anim"
+]
+},
+{
+"id": "r_ann",
+"t": "root",
+"main": "ann",
+"zh": "年",
+"vars": [
+"ann",
+"enn"
+]
+},
+{
+"id": "r_anthrop",
+"t": "root",
+"main": "anthrop",
+"zh": "人",
+"vars": [
+"anthrop"
+]
+},
+{
+"id": "r_aqu",
+"t": "root",
+"main": "aqu",
+"zh": "水",
+"vars": [
+"aqu"
+]
+},
+{
+"id": "r_arch",
+"t": "root",
+"main": "arch",
+"zh": "统治；首要",
+"vars": [
+"arch"
+]
+},
+{
+"id": "r_aud",
+"t": "root",
+"main": "aud",
+"zh": "听",
+"vars": [
+"aud",
+"audi"
+]
+},
+{
+"id": "r_bio",
+"t": "root",
+"main": "bio",
+"zh": "生命",
+"vars": [
+"bio"
+]
+},
+{
+"id": "r_cap",
+"t": "root",
+"main": "cap",
+"zh": "拿，抓",
+"vars": [
+"cap",
+"capt",
+"cip"
+]
+},
+{
+"id": "r_capit",
+"t": "root",
+"main": "capit",
+"zh": "头",
+"vars": [
+"capit"
+]
+},
+{
+"id": "r_ced",
+"t": "root",
+"main": "ced",
+"zh": "走",
+"vars": [
+"ced",
+"cede",
+"ceed",
+"cess"
+]
+},
+{
+"id": "r_centr",
+"t": "root",
+"main": "centr",
+"zh": "中心",
+"vars": [
+"centr",
+"center"
+]
+},
+{
+"id": "r_chron",
+"t": "root",
+"main": "chron",
+"zh": "时间",
+"vars": [
+"chron"
+]
+},
+{
+"id": "r_circ",
+"t": "root",
+"main": "circ",
+"zh": "圆，环",
+"vars": [
+"circ",
+"circul"
+]
+},
+{
+"id": "r_claim",
+"t": "root",
+"main": "claim",
+"zh": "喊",
+"vars": [
+"claim",
+"clam"
+]
+},
+{
+"id": "r_clud",
+"t": "root",
+"main": "clud",
+"zh": "关闭",
+"vars": [
+"clud",
+"clude",
+"clus",
+"clos"
+]
+},
+{
+"id": "r_cogn",
+"t": "root",
+"main": "cogn",
+"zh": "知道",
+"vars": [
+"cogn",
+"gnos"
+]
+},
+{
+"id": "r_cord",
+"t": "root",
+"main": "cord",
+"zh": "心",
+"vars": [
+"cord",
+"cour",
+"curr",
+"curs"
+],
+"hist": [
+"cour"
+]
+},
+{
+"id": "r_corp",
+"t": "root",
+"main": "corp",
+"zh": "身体",
+"vars": [
+"corp",
+"corpor"
+]
+},
+{
+"id": "r_crac",
+"t": "root",
+"main": "crac",
+"zh": "统治",
+"vars": [
+"crac",
+"crat"
+]
+},
+{
+"id": "r_cre",
+"t": "root",
+"main": "cre",
+"zh": "生长，创造",
+"vars": [
+"cre",
+"cresc",
+"creat"
+]
+},
+{
+"id": "r_cred",
+"t": "root",
+"main": "cred",
+"zh": "相信",
+"vars": [
+"cred"
+]
+},
+{
+"id": "r_cur",
+"t": "root",
+"main": "cur",
+"zh": "关心",
+"vars": [
+"cur"
+]
+},
+{
+"id": "r_cycl",
+"t": "root",
+"main": "cycl",
+"zh": "圈，循环",
+"vars": [
+"cycl"
+]
+},
+{
+"id": "r_dem",
+"t": "root",
+"main": "dem",
+"zh": "人民",
+"vars": [
+"dem",
+"demo"
+]
+},
+{
+"id": "r_dent",
+"t": "root",
+"main": "dent",
+"zh": "牙",
+"vars": [
+"dent"
+]
+},
+{
+"id": "r_derm",
+"t": "root",
+"main": "derm",
+"zh": "皮肤",
+"vars": [
+"derm"
+]
+},
+{
+"id": "r_doc",
+"t": "root",
+"main": "doc",
+"zh": "教",
+"vars": [
+"doc",
+"doct"
+]
+},
+{
+"id": "r_dom",
+"t": "root",
+"main": "dom",
+"zh": "家；统治",
+"vars": [
+"dom"
+]
+},
+{
+"id": "r_don",
+"t": "root",
+"main": "don",
+"zh": "给",
+"vars": [
+"don",
+"dat",
+"dot"
+]
+},
+{
+"id": "r_dur",
+"t": "root",
+"main": "dur",
+"zh": "持久",
+"vars": [
+"dur"
+]
+},
+{
+"id": "r_dynam",
+"t": "root",
+"main": "dynam",
+"zh": "力",
+"vars": [
+"dyn",
+"dynam"
+]
+},
+{
+"id": "r_econom",
+"t": "root",
+"main": "econom",
+"zh": "经济",
+"vars": [
+"econom",
+"eco"
+]
+},
+{
+"id": "r_equ",
+"t": "root",
+"main": "equ",
+"zh": "平等",
+"vars": [
+"equ",
+"equi"
+]
+},
+{
+"id": "r_fac",
+"t": "root",
+"main": "fac",
+"zh": "做",
+"vars": [
+"fac",
+"fact",
+"fect",
+"fic"
+]
+},
+{
+"id": "r_fer",
+"t": "root",
+"main": "fer",
+"zh": "带，运",
+"vars": [
+"fer"
+]
+},
+{
+"id": "r_fid",
+"t": "root",
+"main": "fid",
+"zh": "信任",
+"vars": [
+"fid"
+]
+},
+{
+"id": "r_fin",
+"t": "root",
+"main": "fin",
+"zh": "结束；界限",
+"vars": [
+"fin"
+]
+},
+{
+"id": "r_flect",
+"t": "root",
+"main": "flect",
+"zh": "弯曲",
+"vars": [
+"flect",
+"flex"
+]
+},
+{
+"id": "r_flu",
+"t": "root",
+"main": "flu",
+"zh": "流",
+"vars": [
+"flu",
+"flux"
+]
+},
+{
+"id": "r_fort",
+"t": "root",
+"main": "fort",
+"zh": "强",
+"vars": [
+"fort",
+"forc"
+],
+"hist": [
+"forc"
+]
+},
+{
+"id": "r_fract",
+"t": "root",
+"main": "fract",
+"zh": "破",
+"vars": [
+"fract",
+"frag"
+]
+},
+{
+"id": "r_fus",
+"t": "root",
+"main": "fus",
+"zh": "倒；融合",
+"vars": [
+"fus",
+"fund",
+"found"
+],
+"hist": [
+"found"
+]
+},
+{
+"id": "r_gen",
+"t": "root",
+"main": "gen",
+"zh": "产生；种类",
+"vars": [
+"gen",
+"gener"
+]
+},
+{
+"id": "r_geo",
+"t": "root",
+"main": "geo",
+"zh": "土地",
+"vars": [
+"geo"
+]
+},
+{
+"id": "r_grad",
+"t": "root",
+"main": "grad",
+"zh": "步，级",
+"vars": [
+"grad",
+"gress"
+]
+},
+{
+"id": "r_graph",
+"t": "root",
+"main": "graph",
+"zh": "写，画",
+"vars": [
+"graph"
+]
+},
+{
+"id": "r_grat",
+"t": "root",
+"main": "grat",
+"zh": "感激；令人愉快",
+"vars": [
+"grat"
+]
+},
+{
+"id": "r_grav",
+"t": "root",
+"main": "grav",
+"zh": "重",
+"vars": [
+"grav",
+"griev"
+],
+"hist": [
+"griev"
+]
+},
+{
+"id": "r_hab",
+"t": "root",
+"main": "hab",
+"zh": "持有；居住",
+"vars": [
+"hab",
+"hibit"
+]
+},
+{
+"id": "r_her",
+"t": "root",
+"main": "her",
+"zh": "粘附",
+"vars": [
+"her",
+"hes"
+]
+},
+{
+"id": "r_hydr",
+"t": "root",
+"main": "hydr",
+"zh": "水",
+"vars": [
+"hydr"
+]
+},
+{
+"id": "r_ject",
+"t": "root",
+"main": "ject",
+"zh": "投掷",
+"vars": [
+"ject"
+]
+},
+{
+"id": "r_jud",
+"t": "root",
+"main": "jud",
+"zh": "判断",
+"vars": [
+"jud",
+"judic"
+]
+},
+{
+"id": "r_junct",
+"t": "root",
+"main": "junct",
+"zh": "连接",
+"vars": [
+"junct",
+"join"
+],
+"hist": [
+"join"
+]
+},
+{
+"id": "r_jur",
+"t": "root",
+"main": "jur",
+"zh": "法律；发誓",
+"vars": [
+"jur",
+"jus"
+]
+},
+{
+"id": "r_lect",
+"t": "root",
+"main": "lect",
+"zh": "选；读",
+"vars": [
+"lect",
+"lig"
+]
+},
+{
+"id": "r_lev",
+"t": "root",
+"main": "lev",
+"zh": "轻；举起",
+"vars": [
+"lev"
+]
+},
+{
+"id": "r_liber",
+"t": "root",
+"main": "liber",
+"zh": "自由",
+"vars": [
+"liber"
+]
+},
+{
+"id": "r_lingu",
+"t": "root",
+"main": "lingu",
+"zh": "语言",
+"vars": [
+"lingu"
+]
+},
+{
+"id": "r_liter",
+"t": "root",
+"main": "liter",
+"zh": "文字",
+"vars": [
+"liter"
+]
+},
+{
+"id": "r_loc",
+"t": "root",
+"main": "loc",
+"zh": "地方",
+"vars": [
+"loc"
+]
+},
+{
+"id": "r_log",
+"t": "root",
+"main": "log",
+"zh": "言语；学说",
+"vars": [
+"log",
+"logy"
+]
+},
+{
+"id": "r_loqu",
+"t": "root",
+"main": "loqu",
+"zh": "说",
+"vars": [
+"loqu",
+"locu"
+]
+},
+{
+"id": "r_luc",
+"t": "root",
+"main": "luc",
+"zh": "光",
+"vars": [
+"luc",
+"lum",
+"lumin"
+]
+},
+{
+"id": "r_magn",
+"t": "root",
+"main": "magn",
+"zh": "大",
+"vars": [
+"magn"
+]
+},
+{
+"id": "r_man",
+"t": "root",
+"main": "man",
+"zh": "手",
+"vars": [
+"man",
+"manu"
+]
+},
+{
+"id": "r_mand",
+"t": "root",
+"main": "mand",
+"zh": "命令",
+"vars": [
+"mand",
+"mend"
+],
+"hist": [
+"mend"
+]
+},
+{
+"id": "r_mar",
+"t": "root",
+"main": "mar",
+"zh": "海",
+"vars": [
+"mar"
+]
+},
+{
+"id": "r_mater",
+"t": "root",
+"main": "mater",
+"zh": "母亲",
+"vars": [
+"mater",
+"matr"
+]
+},
+{
+"id": "r_medi",
+"t": "root",
+"main": "medi",
+"zh": "中间",
+"vars": [
+"medi"
+]
+},
+{
+"id": "r_mem",
+"t": "root",
+"main": "mem",
+"zh": "记忆",
+"vars": [
+"mem",
+"memor"
+]
+},
+{
+"id": "r_ment",
+"t": "root",
+"main": "ment",
+"zh": "心智",
+"vars": [
+"ment"
+]
+},
+{
+"id": "r_merg",
+"t": "root",
+"main": "merg",
+"zh": "沉，浸",
+"vars": [
+"merg",
+"mers"
+]
+},
+{
+"id": "r_meter",
+"t": "root",
+"main": "meter",
+"zh": "测量",
+"vars": [
+"meter",
+"metr",
+"mens"
+]
+},
+{
+"id": "r_migr",
+"t": "root",
+"main": "migr",
+"zh": "迁移",
+"vars": [
+"migr"
+]
+},
+{
+"id": "r_min",
+"t": "root",
+"main": "min",
+"zh": "小",
+"vars": [
+"min"
+]
+},
+{
+"id": "r_mob",
+"t": "root",
+"main": "mob",
+"zh": "移动",
+"vars": [
+"mob",
+"mot",
+"mov"
+]
+},
+{
+"id": "r_mon",
+"t": "root",
+"main": "mon",
+"zh": "提醒，警告",
+"vars": [
+"mon",
+"monit"
+]
+},
+{
+"id": "r_morph",
+"t": "root",
+"main": "morph",
+"zh": "形态",
+"vars": [
+"morph"
+]
+},
+{
+"id": "r_mort",
+"t": "root",
+"main": "mort",
+"zh": "死",
+"vars": [
+"mort"
+]
+},
+{
+"id": "r_mut",
+"t": "root",
+"main": "mut",
+"zh": "改变",
+"vars": [
+"mut"
+]
+},
+{
+"id": "r_nat",
+"t": "root",
+"main": "nat",
+"zh": "出生",
+"vars": [
+"nat",
+"nasc"
+]
+},
+{
+"id": "r_nav",
+"t": "root",
+"main": "nav",
+"zh": "船",
+"vars": [
+"nav"
+]
+},
+{
+"id": "r_neg",
+"t": "root",
+"main": "neg",
+"zh": "否定",
+"vars": [
+"neg"
+]
+},
+{
+"id": "r_nom",
+"t": "root",
+"main": "nom",
+"zh": "名称；法则",
+"vars": [
+"nom",
+"nym"
+]
+},
+{
+"id": "r_nov",
+"t": "root",
+"main": "nov",
+"zh": "新",
+"vars": [
+"nov"
+]
+},
+{
+"id": "r_nounc",
+"t": "root",
+"main": "nounc",
+"zh": "宣告",
+"vars": [
+"nounc",
+"nunci"
+]
+},
+{
+"id": "r_numer",
+"t": "root",
+"main": "numer",
+"zh": "数",
+"vars": [
+"numer"
+]
+},
+{
+"id": "r_oper",
+"t": "root",
+"main": "oper",
+"zh": "工作",
+"vars": [
+"oper"
+]
+},
+{
+"id": "r_opt",
+"t": "root",
+"main": "opt",
+"zh": "选择；视觉",
+"vars": [
+"opt"
+]
+},
+{
+"id": "r_ord",
+"t": "root",
+"main": "ord",
+"zh": "顺序",
+"vars": [
+"ord",
+"ordin"
+]
+},
+{
+"id": "r_pact",
+"t": "root",
+"main": "pact",
+"zh": "固定",
+"vars": [
+"pact"
+]
+},
+{
+"id": "r_par",
+"t": "root",
+"main": "par",
+"zh": "准备；相等",
+"vars": [
+"par",
+"pair"
+],
+"hist": [
+"pair"
+]
+},
+{
+"id": "r_path",
+"t": "root",
+"main": "path",
+"zh": "感受；疾病",
+"vars": [
+"path"
+]
+},
+{
+"id": "r_ped",
+"t": "root",
+"main": "ped",
+"zh": "脚；儿童",
+"vars": [
+"ped",
+"pod"
+]
+},
+{
+"id": "r_pel",
+"t": "root",
+"main": "pel",
+"zh": "推",
+"vars": [
+"pel",
+"puls"
+]
+},
+{
+"id": "r_pend",
+"t": "root",
+"main": "pend",
+"zh": "悬挂；支付",
+"vars": [
+"pend",
+"pens"
+]
+},
+{
+"id": "r_pet",
+"t": "root",
+"main": "pet",
+"zh": "寻求",
+"vars": [
+"pet",
+"peti"
+]
+},
+{
+"id": "r_phil",
+"t": "root",
+"main": "phil",
+"zh": "爱",
+"vars": [
+"phil"
+]
+},
+{
+"id": "r_phon",
+"t": "root",
+"main": "phon",
+"zh": "声音",
+"vars": [
+"phon"
+]
+},
+{
+"id": "r_photo",
+"t": "root",
+"main": "photo",
+"zh": "光",
+"vars": [
+"photo"
+]
+},
+{
+"id": "r_plic",
+"t": "root",
+"main": "plic",
+"zh": "折叠",
+"vars": [
+"plic",
+"ply",
+"plex"
+]
+},
+{
+"id": "r_polit",
+"t": "root",
+"main": "polit",
+"zh": "城邦；政治",
+"vars": [
+"polit",
+"polic"
+],
+"hist": [
+"polic"
+]
+},
+{
+"id": "r_pon",
+"t": "root",
+"main": "pon",
+"zh": "放置",
+"vars": [
+"pon",
+"pos",
+"posit",
+"pound"
+],
+"hist": [
+"pound"
+]
+},
+{
+"id": "r_popul",
+"t": "root",
+"main": "popul",
+"zh": "人民",
+"vars": [
+"popul",
+"publ"
+]
+},
+{
+"id": "r_press",
+"t": "root",
+"main": "press",
+"zh": "压",
+"vars": [
+"press"
+]
+},
+{
+"id": "r_prim",
+"t": "root",
+"main": "prim",
+"zh": "第一",
+"vars": [
+"prim",
+"prin"
+]
+},
+{
+"id": "r_priv",
+"t": "root",
+"main": "priv",
+"zh": "个人",
+"vars": [
+"priv"
+]
+},
+{
+"id": "r_prob",
+"t": "root",
+"main": "prob",
+"zh": "证明",
+"vars": [
+"prob",
+"prov"
+]
+},
+{
+"id": "r_psych",
+"t": "root",
+"main": "psych",
+"zh": "心理",
+"vars": [
+"psych"
+]
+},
+{
+"id": "r_quer",
+"t": "root",
+"main": "quer",
+"zh": "询问，寻求",
+"vars": [
+"quer",
+"quest",
+"quir",
+"quisit"
+]
+},
+{
+"id": "r_rupt",
+"t": "root",
+"main": "rupt",
+"zh": "破裂",
+"vars": [
+"rupt"
+]
+},
+{
+"id": "r_sacr",
+"t": "root",
+"main": "sacr",
+"zh": "神圣",
+"vars": [
+"sacr",
+"sanct"
+]
+},
+{
+"id": "r_sal",
+"t": "root",
+"main": "sal",
+"zh": "跳",
+"vars": [
+"sal",
+"sult"
+]
+},
+{
+"id": "r_sci",
+"t": "root",
+"main": "sci",
+"zh": "知道",
+"vars": [
+"sci"
+]
+},
+{
+"id": "r_scrib",
+"t": "root",
+"main": "scrib",
+"zh": "写",
+"vars": [
+"scrib",
+"script"
+]
+},
+{
+"id": "r_sect",
+"t": "root",
+"main": "sect",
+"zh": "切",
+"vars": [
+"sect",
+"seg"
+]
+},
+{
+"id": "r_sens",
+"t": "root",
+"main": "sens",
+"zh": "感觉",
+"vars": [
+"sens",
+"sent"
+]
+},
+{
+"id": "r_sequ",
+"t": "root",
+"main": "sequ",
+"zh": "跟随",
+"vars": [
+"sequ",
+"secut"
+]
+},
+{
+"id": "r_serv",
+"t": "root",
+"main": "serv",
+"zh": "服务；保持",
+"vars": [
+"serv"
+]
+},
+{
+"id": "r_sign",
+"t": "root",
+"main": "sign",
+"zh": "标记",
+"vars": [
+"sign"
+]
+},
+{
+"id": "r_simil",
+"t": "root",
+"main": "simil",
+"zh": "相似",
+"vars": [
+"simil",
+"simul",
+"sembl"
+],
+"hist": [
+"sembl"
+]
+},
+{
+"id": "r_sist",
+"t": "root",
+"main": "sist",
+"zh": "站立",
+"vars": [
+"sist",
+"sta",
+"stat",
+"stit",
+"stan"
+]
+},
+{
+"id": "r_soci",
+"t": "root",
+"main": "soci",
+"zh": "社会；同伴",
+"vars": [
+"soci",
+"socio"
+]
+},
+{
+"id": "r_solv",
+"t": "root",
+"main": "solv",
+"zh": "松开，解决",
+"vars": [
+"solv",
+"solu"
+]
+},
+{
+"id": "r_son",
+"t": "root",
+"main": "son",
+"zh": "声音",
+"vars": [
+"son"
+]
+},
+{
+"id": "r_soph",
+"t": "root",
+"main": "soph",
+"zh": "智慧",
+"vars": [
+"soph"
+]
+},
+{
+"id": "r_spir",
+"t": "root",
+"main": "spir",
+"zh": "呼吸",
+"vars": [
+"spir"
+]
+},
+{
+"id": "r_spond",
+"t": "root",
+"main": "spond",
+"zh": "承诺；回应",
+"vars": [
+"spond",
+"spons"
+]
+},
+{
+"id": "r_tact",
+"t": "root",
+"main": "tact",
+"zh": "触摸",
+"vars": [
+"tact",
+"tang",
+"tig"
+]
+},
+{
+"id": "r_techn",
+"t": "root",
+"main": "techn",
+"zh": "技艺",
+"vars": [
+"techn"
+]
+},
+{
+"id": "r_temp",
+"t": "root",
+"main": "temp",
+"zh": "时间",
+"vars": [
+"temp",
+"tempor"
+]
+},
+{
+"id": "r_term",
+"t": "root",
+"main": "term",
+"zh": "界限",
+"vars": [
+"term",
+"termin"
+]
+},
+{
+"id": "r_terr",
+"t": "root",
+"main": "terr",
+"zh": "土地",
+"vars": [
+"terr"
+]
+},
+{
+"id": "r_test",
+"t": "root",
+"main": "test",
+"zh": "证据",
+"vars": [
+"test"
+]
+},
+{
+"id": "r_the",
+"t": "root",
+"main": "the",
+"zh": "神",
+"vars": [
+"the",
+"theo"
+]
+},
+{
+"id": "r_therm",
+"t": "root",
+"main": "therm",
+"zh": "热",
+"vars": [
+"therm"
+]
+},
+{
+"id": "r_tort",
+"t": "root",
+"main": "tort",
+"zh": "扭曲",
+"vars": [
+"tort"
+]
+},
+{
+"id": "r_trib",
+"t": "root",
+"main": "trib",
+"zh": "给予",
+"vars": [
+"trib"
+]
+},
+{
+"id": "r_turb",
+"t": "root",
+"main": "turb",
+"zh": "搅动",
+"vars": [
+"turb"
+]
+},
+{
+"id": "r_vac",
+"t": "root",
+"main": "vac",
+"zh": "空",
+"vars": [
+"vac",
+"van",
+"void"
+],
+"hist": [
+"void"
+]
+},
+{
+"id": "r_val",
+"t": "root",
+"main": "val",
+"zh": "价值；强",
+"vars": [
+"val",
+"vail"
+],
+"hist": [
+"vail"
+]
+},
+{
+"id": "r_ven",
+"t": "root",
+"main": "ven",
+"zh": "来",
+"vars": [
+"ven",
+"vent"
+]
+},
+{
+"id": "r_ver",
+"t": "root",
+"main": "ver",
+"zh": "真实",
+"vars": [
+"ver"
+]
+},
+{
+"id": "r_vert",
+"t": "root",
+"main": "vert",
+"zh": "转",
+"vars": [
+"vert",
+"vers"
+]
+},
+{
+"id": "r_vit",
+"t": "root",
+"main": "vit",
+"zh": "生命",
+"vars": [
+"vit",
+"viv"
+]
+},
+{
+"id": "r_voc",
+"t": "root",
+"main": "voc",
+"zh": "声音；叫",
+"vars": [
+"voc",
+"vok"
+]
+},
+{
+"id": "r_vol",
+"t": "root",
+"main": "vol",
+"zh": "意愿",
+"vars": [
+"vol"
+]
+},
+{
+"id": "r_volv",
+"t": "root",
+"main": "volv",
+"zh": "卷，转",
+"vars": [
+"volv",
+"volu"
+]
+},
+{
+"id": "p_be",
+"t": "pre",
+"main": "be-",
+"zh": "使…；加强",
+"vars": [
+"be"
+]
+},
+{
+"id": "p_meta",
+"t": "pre",
+"main": "meta-",
+"zh": "超越；变化",
+"vars": [
+"meta"
+]
+},
+{
+"id": "p_iso",
+"t": "pre",
+"main": "iso-",
+"zh": "相等",
+"vars": [
+"iso"
+]
+},
+{
+"id": "p_electro",
+"t": "pre",
+"main": "electro-",
+"zh": "电",
+"vars": [
+"electro"
+]
+},
+{
+"id": "p_radio",
+"t": "pre",
+"main": "radio-",
+"zh": "放射；无线电",
+"vars": [
+"radio"
+]
+},
+{
+"id": "p_neuro",
+"t": "pre",
+"main": "neuro-",
+"zh": "神经",
+"vars": [
+"neuro"
+]
+},
+{
+"id": "p_mega",
+"t": "pre",
+"main": "mega-",
+"zh": "巨大",
+"vars": [
+"mega"
+]
+},
+{
+"id": "s_man",
+"t": "suf",
+"main": "-man",
+"zh": "n. …人",
+"vars": [
+"man"
+]
+},
+{
+"id": "s_oid",
+"t": "suf",
+"main": "-oid",
+"zh": "adj. 似…的",
+"vars": [
+"oid"
+]
+},
+{
+"id": "s_ology",
+"t": "suf",
+"main": "-ology",
+"zh": "n. …学",
+"vars": [
+"ology",
+"logy"
+]
+},
+{
+"id": "s_ling",
+"t": "suf",
+"main": "-ling",
+"zh": "n. 小；…者",
+"vars": [
+"ling"
+]
+},
+{
+"id": "s_ster",
+"t": "suf",
+"main": "-ster",
+"zh": "n. …者",
+"vars": [
+"ster"
+]
+},
+{
+"id": "s_ium",
+"t": "suf",
+"main": "-ium",
+"zh": "n. 场所；化学元素",
+"vars": [
+"ium"
+]
+},
+{
+"id": "s_itis",
+"t": "suf",
+"main": "-itis",
+"zh": "n. 炎症",
+"vars": [
+"itis"
+]
+},
+{
+"id": "s_ally",
+"t": "suf",
+"main": "-ally",
+"zh": "adv. …地",
+"vars": [
+"ally"
+]
+},
+{
+"id": "s_ability",
+"t": "suf",
+"main": "-ability",
+"zh": "n. 可…性",
+"vars": [
+"ability",
+"ibility"
+]
+},
+{
+"id": "s_ization",
+"t": "suf",
+"main": "-ization",
+"zh": "n. …化",
+"vars": [
+"ization",
+"isation"
+]
+},
+{
+"id": "s_istic",
+"t": "suf",
+"main": "-istic",
+"zh": "adj. …的",
+"vars": [
+"istic"
+]
+},
+{
+"id": "r_urb",
+"t": "root",
+"main": "urb",
+"zh": "城市",
+"vars": [
+"urb"
+]
+},
+{
+"id": "s_ane",
+"t": "suf",
+"main": "-ane",
+"zh": "adj. …的",
+"vars": [
+"ane"
+]
+}
+]

@@ -1,0 +1,50 @@
+[data-style="classic"] {
+  --bg: #E2DBFF; --sheet: #FFFFFF; --ink: #221C45; --mut: #6B668F;
+  --line: #E6E1F6; --soft: #F3F0FF; --edge: #CEC4F2;
+  --acc: #6B4EF6; --accd: #4A31C9; --hl: #EDE8FF;
+  color-scheme: light;
+}
+[data-style="classic"] { --read: "Gelasio", "Noto Serif SC", Georgia, serif; }
+[data-style="classic"] .nav-group button { width: 60px; height: 62px; border-radius: 18px; border: 0; box-shadow: 0 4px 0 #d9d1fb; }
+[data-style="classic"] .nav-group button b { font: 800 19px/1 "Noto Sans SC", var(--ui); }
+[data-style="classic"] .nav-group button small { font-size: 10px; }
+[data-style="classic"] .nav-group button.on { box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 62%, #000); }
+[data-style="classic"] .nav .end { width: 52px; height: 46px; border: 0; background: var(--sheet); box-shadow: 0 3px 0 #d9d1fb; }
+
+[data-style="classic"] .pc.s1 .p-depth { display: none; }
+[data-style="classic"] .pc.s2 .p-depth { transform: translate(0, 3px); }
+[data-style="classic"] .pc.s4 .p-depth, [data-style="classic"] .pc.s5 .p-depth { transform: translate(0, 9.5px); }
+[data-style="classic"] .pc.s2 .p-shine { display: none; }
+[data-style="classic"] .pc .p-gloss ellipse { fill: #fff; opacity: .42; }
+[data-style="classic"] .pc .p-gloss rect { fill: #fff; opacity: .85; }
+
+[data-style="classic"] .forge-main { flex-direction: row; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 18px 34px; max-width: 1040px; }
+[data-style="classic"] .forge-main > .f-ety { flex-basis: 100%; text-align: center; }
+[data-style="classic"] .forge-card { flex: 1 1 360px; width: auto; max-width: 520px; min-width: 0; margin-top: 24px; }
+[data-style="classic"] .tray { position: relative; flex: none; width: 338px; height: 338px; margin-top: 60px; }
+[data-style="classic"] .tray-plate {
+  position: absolute; inset: 0; padding: 25px; border-radius: 26px; background: #F3EFFF;
+  box-shadow: inset 0 6px 0 rgba(74, 49, 201, .09), 0 8px 0 #d6ccfb, 0 18px 30px rgba(60, 40, 140, .12);
+  transform: perspective(900px) rotateX(16deg) rotateZ(-3deg); transform-origin: 50% 60%;
+}
+[data-style="classic"] .tray-cell { position: absolute; margin: 25px 0 0 25px; width: calc(148px * .96); height: calc(154px * .96); }
+[data-style="classic"] .tray-cell > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+[data-style="classic"] .tray-cell > svg path { fill: #E7E1FA; stroke: #CFC5F4; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+[data-style="classic"] .tray-cell.cur > svg path { fill: #ECE6FF; stroke: var(--acc); stroke-width: 2.6; stroke-dasharray: 7 5; }
+[data-style="classic"] .tray.bad .tray-cell.cur > svg path { fill: #FFEFF3; stroke: var(--s5); }
+[data-style="classic"] .tray-lb { position: absolute; left: calc(24px * .96); top: calc(22px * .96); width: 96px; height: 96px; display: grid; place-items: center; padding: 0 8px; text-align: center; font: 700 14px/1.15 var(--read); color: #9a92c4; }
+[data-style="classic"] .tray-cell.cur .tray-lb { color: var(--accd); font-weight: 800; }
+[data-style="classic"] .tray-hover { position: absolute; margin: -30px 0 0 12px; transform: rotate(-5deg); filter: drop-shadow(0 10px 10px rgba(60, 40, 140, .18)); z-index: 2; }
+[data-style="classic"] .tray.bad .tray-hover { transform: rotate(4deg) translateY(-6px); }
+[data-style="classic"] .forge-main.f-done { flex-direction: column; align-items: center; }
+[data-style="classic"] .done-stats .gold { background: #FFF6DC; }
+[data-style="classic"] .mx-formula { font: 600 12.5px var(--ui); color: var(--mut); border-bottom: 1.5px dashed var(--line); padding-bottom: 12px; }
+[data-style="classic"] .mx-root { color: var(--s5); }
+[data-style="classic"] .mx-node { border-radius: 16px; border: 2px solid #ECE7FF; box-shadow: 0 4px 0 #ECE7FF; min-width: 200px; }
+[data-style="classic"] .mx-node.ref { border-style: dashed; box-shadow: none; }
+[data-style="classic"] .mx-morph { background: color-mix(in srgb, var(--tc) 10%, var(--sheet)); border: 2px solid var(--tc); }
+[data-style="classic"] .mx-morph.on { background: var(--tc); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--tc) 70%, #000); }
+[data-style="classic"] .mx-morph.on .mx-mz { color: #fff; opacity: .85; }
+[data-style="classic"] .mx-morph.on .mx-cnt { background: #fff; color: var(--tc); }
+@container fmain (max-width: 900px) { [data-style="classic"] .tray { zoom: .82; } }
+@container fmain (max-width: 700px) { [data-style="classic"] .tray { zoom: .7; margin-top: 30px; } [data-style="classic"] .forge-card { flex-basis: 300px; } }

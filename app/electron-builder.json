@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "app.luzzle.desktop",
+  "productName": "Luzzle",
+  "copyright": "Copyright © 2026 Luzzle",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/main.mjs",
+    "electron/preload.cjs",
+    "package.json",
+    "!node_modules/**/*"
+  ],
+  "asar": true,
+  "mac": {
+    "category": "public.app-category.education",
+    "icon": "build/icon.png",
+    "identity": null,
+    "target": ["dmg", "zip"],
+    "fileAssociations": [
+      { "ext": "pdf", "name": "PDF Document", "role": "Viewer" },
+      { "ext": "epub", "name": "EPUB Book", "role": "Viewer" },
+      { "ext": "md", "name": "Markdown Document", "role": "Viewer" },
+      { "ext": "txt", "name": "Plain Text", "role": "Viewer" }
+    ]
+  },
+  "win": {
+    "icon": "build/icon.png",
+    "target": ["nsis", "portable"],
+    "fileAssociations": [
+      { "ext": "pdf", "name": "PDF Document" },
+      { "ext": "epub", "name": "EPUB Book" },
+      { "ext": "md", "name": "Markdown Document" },
+      { "ext": "txt", "name": "Plain Text" }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
