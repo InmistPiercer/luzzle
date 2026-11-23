@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { entryFromSurface } from '../learn/pieces'
-import { lemmatize, participialOf, posGuess } from './lemmatize'
+import { lemmatize, participialOf, participleAsAdj, posGuess } from './lemmatize'
 import { dictPeek, glossLines, loadDictAll, phOf, sensesOf, setDictLoader } from './lexdict'
 
 beforeAll(async () => {
@@ -22,6 +22,9 @@ describe('built-in dictionary', () => {
     expect(lemmatize('statistics')).toBe('statistics')
     expect(participialOf('interested')?.base).toBe('interest')
     expect(lemmatize('interested')).toBe('interest')
+    expect(participialOf('evening')).toEqual({ base: 'even', pos: 'n.' })
+    expect(participleAsAdj(['Even', 'a', 'relaxing', 'evening', 'can'], 3, 'n.')).toBe(true)
+    expect(participleAsAdj(['He', 'is', 'running', 'fast'], 2, 'n.')).toBe(false)
   })
 
   it('builds pieces with dictionary senses and pos', () => {

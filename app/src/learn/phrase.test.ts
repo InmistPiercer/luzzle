@@ -54,6 +54,7 @@ describe('phrase progress', () => {
   it('masks discontinuous phrases, irregular forms, and picks a non-core blank', () => {
     expect(maskPhrase('It is tempting to take this shift for granted, as if…', 'take … for granted')).toBe('It is tempting to ___ this shift ___ ___, as if…')
     expect(maskPhrase('She took that quiet loyalty for granted.', 'take … for granted')).toBe('She ___ that quiet loyalty ___ ___.')
+    expect(maskPhrase('She took every single one of those promises for granted.', 'take … for granted')).toBe('She ___ every single one of those promises ___ ___.')
     expect(maskPhrase('They kept faith with the few who finished.', 'keep faith with')).toBe('They ___ ___ ___ the few who finished.')
     expect(maskPhrase('nothing here', 'take … for granted')).toBeNull()
     expect(blankOf('take … for granted', 'grant')).toBe(0)

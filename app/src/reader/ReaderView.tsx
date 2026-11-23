@@ -13,7 +13,7 @@ import { CtxDock } from './CtxDock'
 import { importReaderFile } from './docActions'
 import { ParaText } from './Paragraph'
 import { Popover } from './Popover'
-import { closePop, curDocOf, needsRecall, normWordsOf, originsOf, pickCurrent, pickWord, recallGateId, triggerAI, useReader } from './session'
+import { annPhraseParts, annToPhrase, closePop, curDocOf, needsRecall, normWordsOf, originsOf, pickCurrent, pickWord, recallGateId, togglePickWord, triggerAI, useReader } from './session'
 import { Shelf } from './Shelf'
 import { DocBar } from './DocBar'
 import { pageOfPara, paginate, type Item } from './paginate'
@@ -61,7 +61,7 @@ export function ReaderView() {
   const view = useApp((x) => x.view)
   const dictSeq = useApp((x) => x.dictSeq)
   const running = usePdf((x) => x.running)
-  const { cur, pen, penColor, sel, jump, set } = useReader()
+  const { cur, pen, penColor, sel, ann, jump, set } = useReader()
   const trMap = useTr((x) => x.map)
   const trRun = useTr((x) => x.running)
   const docs = allDocs(data)
@@ -129,6 +129,14 @@ export function ReaderView() {
         }
         return
       }
+      if (useApp.getState().view === 'read' && e.key === 'Enter' && !r.po && r.ann) {
+        const part = annPhraseParts(r.ann)
+        if (part.kept.length >= 2 && part.kept.length <= 6 && part.maxGap <= 6) {
+          e.preventDefault()
+          annToPhrase()
+        }
+        return
+      }
       if (useApp.getState().view !== 'read' || !r.po || !r.sel || r.askNew || r.askHead) return
       if (e.key === 'Enter') {
         const d = useApp.getState().data
@@ -189,7 +197,7 @@ export function ReaderView() {
         if (p) {
           const norm = normWordsOf(p.t)
           const wis = Array.from({ length: hi - lo + 1 }, (_, idx) => lo + idx).filter((wi) => norm[wi])
-          if (wis.length) useReader.getState().set({ ann: { pid: pt.pid, w0: wis[0], w1: wis[wis.length - 1], words: wis.map((i) => norm[i]), hl: pt.color } })
+          if (wis.length) useReader.getState().set({ ann: { pid: pt.pid, w0: wis[0], w1: wis[wis.length - 1], wis, words: wis.map((i) => norm[i]), hl: pt.color } })
         }
       } else useReader.getState().set({ ann: null })
       markDragEnd()
@@ -358,7 +366,7 @@ export function ReaderView() {
                           译
                         </button>
                       )}
-                      <ParaText data={data} dictSeq={dictSeq} p={p} rebuilt={!!doc.rebuilt} selWi={sel && sel.pid === id && view === 'read' ? sel.wi : null} />
+                      <ParaText data={data} dictSeq={dictSeq} p={p} rebuilt={!!doc.rebuilt} selWi={sel && sel.pid === id && view === 'read' ? sel.wi : null} pickWis={ann?.pickOnly && ann.pid === id ? ann.wis : null} />
                     </p>
                     {zh && trMode === 'bi' && <div className="tr-sub">{zh}</div>}
                   </Fragment>
@@ -372,7 +380,7 @@ export function ReaderView() {
     const wis = [...new Set([...seg.querySelectorAll<HTMLElement>('.w')].map((x) => Number(x.dataset.wi)))]
     if (!wis.length) return
     const norm = normWordsOf(p.t)
-    set({ ann: { pid: p.id as string, w0: wis[0], w1: wis[wis.length - 1], words: wis.map((i) => norm[i]), hl: (seg as HTMLElement).dataset.hl || 'y' } })
+    set({ ann: { pid: p.id as string, w0: wis[0], w1: wis[wis.length - 1], wis, words: wis.map((i) => norm[i]), hl: (seg as HTMLElement).dataset.hl || 'y' } })
   }
 
   const onColClick = (e: React.MouseEvent) => {
@@ -382,6 +390,11 @@ export function ReaderView() {
     const seg = t.closest('.ann-seg')
     if (w) {
       const pid = (w.closest('p') as HTMLElement).dataset.id as string
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault()
+        togglePickWord(pid, Number(w.dataset.wi))
+        return
+      }
       pickWord(pid, Number(w.dataset.wi), w.dataset.w || '')
       if (seg) openAnn(seg)
       else set({ ann: null })
@@ -390,7 +403,7 @@ export function ReaderView() {
 
   const onColDown = (e: RPE) => {
     const w = (e.target as Element).closest<HTMLElement>('.w')
-    if (!w || e.button > 0) return
+    if (!w || e.button > 0 || e.metaKey || e.ctrlKey) return
     const shiftHl = e.shiftKey && pen === 'pick'
     if (shiftHl || pen === 'hl') {
       e.preventDefault()

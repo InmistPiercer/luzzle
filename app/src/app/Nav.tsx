@@ -47,7 +47,7 @@ export function Nav({ onSettings }: { onSettings: () => void }) {
             <b>
               LUZZLE<i />
             </b>
-            <small>{IS_TEST ? 'v6.15 · test' : 'v6.15 · amber'}</small>
+            <small>{IS_TEST ? 'v1.0 · test' : 'v1.0 · amber'}</small>
           </span>
         ) : style === 'neon' ? (
           <span className="neon-sign">LUZZLE</span>

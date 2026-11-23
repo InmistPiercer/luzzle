@@ -353,7 +353,7 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
         </div>
 
         <div className="small mut" style={{ textAlign: 'center', fontWeight: 700, paddingTop: 4 }}>
-          Luzzle v6.15.0{desktop ? ' · 桌面版' : ''}{IS_TEST ? ' · 测试版' : ''}
+          Luzzle v1.0.0{desktop ? ' · 桌面版' : ''}{IS_TEST ? ' · 测试版' : ''}
           <div className="data-src">词典 ECDICT（MIT）· 词素 MorphoLex-EN（Sánchez-Gutiérrez et al., 2018）、MorphyNet（CC BY-SA 3.0，源自 Wiktionary）· 例句 Tatoeba（CC BY 2.0 FR）</div>
         </div>
       </div>

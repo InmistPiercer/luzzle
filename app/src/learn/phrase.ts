@@ -115,7 +115,7 @@ export function maskPhrase(s: string, lemma: string): string | null {
   const find = (ti: number, from: number, prev: number): number[] | null => {
     if (ti === toks.length) return []
     for (let wi = from; wi < words.length; wi++) {
-      if (prev >= 0 && wi - prev > 5) break
+      if (prev >= 0 && wi - prev > 7) break
       if (!fits(words[wi].w, ti)) continue
       const rest = find(ti + 1, wi + 1, wi)
       if (rest) return [wi, ...rest]

@@ -2,7 +2,7 @@
   "name": "luzzle",
   "productName": "Luzzle",
   "private": true,
-  "version": "6.15.0",
+  "version": "1.0.0",
   "description": "Luzzle · 语境词汇拼图",
   "author": "Luzzle",
   "type": "module",

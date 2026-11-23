@@ -121,8 +121,10 @@ export function participialFromDict(w: string): Participial | null {
   const types = e?.exchange['1'] || ''
   if (!e || !base || base === w.toLowerCase() || !/[idp]/.test(types)) return null
   const ss = sensesOf(e)
-  if (!ss.length || !ss.every((s) => s.pos === 'adj.')) return null
-  return { base, pos: 'adj.' }
+  if (!ss.length) return null
+  if (ss.every((s) => s.pos === 'adj.')) return { base, pos: 'adj.' }
+  if (types === 'i' && e.exchange['s'] && ss.every((s) => s.pos === 'n.' || s.pos === 'adj.')) return { base, pos: ss[0].pos as PosTag }
+  return null
 }
 
 export function dictLemma(w: string): string | null {

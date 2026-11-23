@@ -491,13 +491,31 @@ p:hover .tr-go, .tr-go:focus-visible { opacity: 1; color: var(--acc); }
 .ann-seg[data-hl="p"], .w.paint-hl-p { background-color: var(--pen-p); }
 .ann-seg[data-hl="b"], .w.paint-hl-b { background-color: var(--pen-b); }
 
+.w.ph-pick {
+  background: color-mix(in srgb, var(--acc) 22%, transparent);
+  outline: 1.5px solid var(--acc);
+  border-radius: 5px;
+}
+
 .ann-bar {
-  position: absolute; z-index: 14; display: none; align-items: center; gap: 7px;
+  position: absolute; z-index: 14; display: none; flex-direction: column; align-items: stretch; gap: 6px;
   background: var(--sheet); border: var(--bdr) solid var(--line); border-radius: 99px;
   padding: 5px 10px; box-shadow: 0 6px 0 var(--edge); animation: popIn .15s var(--spring);
+  max-width: min(460px, 88vw);
 }
 .ann-bar.open { display: inline-flex; }
+.ann-bar.has-chips { border-radius: 16px; padding: 7px 11px; }
+.ann-bar-row { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .ann-bar .sep { width: 1.5px; height: 14px; background: var(--line); }
+.ann-preview { font: 700 12.5px var(--read); color: var(--acc); padding: 0 2px; }
+.ann-chips { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; border-top: 1px dashed var(--line); }
+.ann-chip {
+  border: 1.5px solid var(--line); background: var(--soft); color: var(--ink);
+  border-radius: 8px; padding: 2px 7px; font: 700 12px var(--read); cursor: pointer;
+  transition: opacity .12s, border-color .12s;
+}
+.ann-chip:hover { border-color: var(--acc); }
+.ann-chip.off { opacity: .45; border-style: dashed; text-decoration: line-through; background: transparent; }
 
 .junk {
   font: 12.5px var(--ui); color: var(--mut); background: color-mix(in srgb, var(--s1) 20%, var(--sheet));

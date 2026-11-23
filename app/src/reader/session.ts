@@ -28,7 +28,7 @@ import {
 import { phraseSpans, sentencesByWord, spansFor, stripCites, tokenize, wordOwner } from './text'
 import { attachAI, ctxKey, hasAISense, isMetaAI, meetKey, occurrenceAI, type MeetAI } from './aiContext'
 import { db } from '../storage/db'
-import { dictHas, ensureDict, firstSense } from '../lang/lexdict'
+import { dictHas, dictPeek, ensureDict, firstSense } from '../lang/lexdict'
 import { ensurePhrases, ensureSenses, loadedPhrases, matchSense, senseLine, sensesOfWord, withSense } from '../lang/senses'
 import { phraseTokens } from '../learn/phrase'
 
@@ -54,8 +54,95 @@ export interface Ann {
   pid: string
   w0: number
   w1: number
+  wis: number[]
   words: string[]
   hl: string
+  skip?: number[]
+  pickOnly?: boolean
+}
+
+const BE_LIKE = new Set(['be', 'get', 'become'])
+
+const isParticipleForm = (w: string) => {
+  const types = dictPeek(w)?.exchange['1']
+  if (types) return /[di]/.test(types)
+  return !!participialOf(w) || (lemmatize(w) !== w && !/(?:s|er|est)$/.test(w))
+}
+
+export function phraseWordLemma(w: string, wi: number, normAll?: string[], prevLm = ''): string {
+  const lower = w.toLowerCase().replace(/’/g, "'")
+  if (!lower) return ''
+  if (/'s$/i.test(lower)) return lower
+  if (prevLm && BE_LIKE.has(prevLm) && isParticipleForm(lower)) return lower
+  const pa = participialOf(w)
+  if (pa && normAll && participleAsAdj(normAll, wi, pa.pos)) return lower
+  return lemmatize(w)
+}
+
+export function annPhraseParts(ann: Ann, normAll?: string[]) {
+  const skip = new Set(ann.skip || [])
+  const kept: { wi: number; w: string; lm: string }[] = []
+  let prevLm = ''
+  for (let i = 0; i < ann.wis.length; i++) {
+    const wi = ann.wis[i]
+    const w = ann.words[i]
+    if (!w || skip.has(wi)) continue
+    const lm = phraseWordLemma(w, wi, normAll, prevLm)
+    kept.push({ wi, w, lm })
+    prevLm = lm
+  }
+  const parts: string[] = []
+  const lemmaParts: string[] = []
+  let maxGap = 0
+  for (let i = 0; i < kept.length; i++) {
+    if (i > 0) {
+      const gap = kept[i].wi - kept[i - 1].wi - 1
+      if (gap > 0) {
+        parts.push('…')
+        lemmaParts.push('…')
+      }
+      if (gap > maxGap) maxGap = gap
+    }
+    parts.push(kept[i].w)
+    lemmaParts.push(kept[i].lm)
+  }
+  const members = kept.map((x) => x.lm)
+  return { kept, parts, text: parts.join(' '), lemmaParts, lemma: lemmaParts.join(' '), members, hasGap: parts.includes('…'), maxGap }
+}
+
+function matchAnnPhrase(d: AppState, normAll: string[], kept: { wi: number; w: string; lm: string }[], hasGap: boolean) {
+  const surface = kept.map((x) => x.w.toLowerCase())
+  const members = kept.map((x) => x.lm)
+  const cat = phraseCatalog(d, [...surface, ...members])
+  const keptSet = new Set(kept.map((x) => x.wi))
+  let hitId: string | null = null
+  spansFor(
+    cat,
+    normAll,
+    (id, hit) => {
+      if (!hitId && hit.length === kept.length && hit.every((pos) => keptSet.has(pos))) {
+        hitId = id
+        return true
+      }
+      return false
+    },
+    true,
+  )
+  if (!hitId && !hasGap) {
+    hitId = spansFor(cat, surface, (_id, hit) => hit[0] === 0 && hit[hit.length - 1] === surface.length - 1, true)[0] || null
+  }
+  const matched = hitId ? d.pieces[hitId] || DEMO_ENTRIES[hitId] || catalogPhraseOf(hitId) : undefined
+  return { hitId, matched }
+}
+
+export function annPhrasePreview(d: AppState, ann: Ann) {
+  const doc = curDocOf(d)
+  const p = doc?.paras.find((x) => x.id === ann.pid)
+  const normAll = normWordsOf(p?.t)
+  const part = annPhraseParts(ann, normAll)
+  const canMatch = part.kept.length >= 2 && part.kept.length <= 6 && part.maxGap <= 6
+  const { hitId, matched } = canMatch ? matchAnnPhrase(d, normAll, part.kept, part.hasGap) : { hitId: null, matched: undefined }
+  return { ...part, preview: matched?.lemma || part.lemma, hitId, matched, doc, p, normAll }
 }
 
 export interface HeadPrompt {
@@ -230,7 +317,7 @@ export function computeSel(d: AppState, doc: DocData, pid: string, wi: number, w
   if (!p) return null
   const normAll = normWordsOf(p.t)
   const pa = participialOf(w)
-  const part = pa ? { base: pa.base, adj: participleAsAdj(normAll, wi) } : null
+  const part = pa ? { base: pa.base, adj: participleAsAdj(normAll, wi, pa.pos) } : null
   const lm = part?.adj ? w.toLowerCase() : lemmatize(w)
   const sents = sentencesByWord(p.t || '')
   const s = sents[wi] || stripCites(p.t || '')
@@ -679,41 +766,64 @@ export async function triggerAI() {
 
 export const aiFailReason = (e: unknown) => aiErr(e, '离线释义 · AI 暂不可用')
 
+export function togglePickWord(pid: string, wi: number) {
+  const d = app().data
+  const doc = curDocOf(d)
+  const p = doc?.paras.find((x) => x.id === pid)
+  if (!doc || !p) return
+  const norm = normWordsOf(p.t)
+  if (!norm[wi]) return
+  const sents = sentencesByWord(p.t || '')
+  const cur = rs().ann
+  if (cur?.pickOnly && cur.pid === pid && cur.wis.length > 0 && sents[cur.wis[0]] === sents[wi]) {
+    if (cur.wis.includes(wi)) {
+      const wis = cur.wis.filter((x) => x !== wi)
+      rs().set({ ann: wis.length ? { ...cur, w0: wis[0], w1: wis[wis.length - 1], wis, words: wis.map((i) => norm[i]) } : null, po: false })
+      return
+    }
+    if (cur.wis.length >= 6) return app().say('短语最多选 6 个词')
+    const wis = [...cur.wis, wi].sort((a, b) => a - b)
+    for (let i = 1; i < wis.length; i++) {
+      if (wis[i] - wis[i - 1] > 7) return app().say('词间距过远')
+    }
+    rs().set({ ann: { ...cur, w0: wis[0], w1: wis[wis.length - 1], wis, words: wis.map((i) => norm[i]) }, po: false })
+    return
+  }
+  rs().set({ po: false, sel: null, ann: { pid, w0: wi, w1: wi, wis: [wi], words: [norm[wi]], hl: '', pickOnly: true } })
+}
+
 export function annToPhrase() {
   const A = rs().ann
   if (!A) return
   const d = app().data
-  const doc = curDocOf(d)
-  const p = doc?.paras.find((x) => x.id === A.pid)
-  if (!doc || !p) return
-  const text = A.words.join(' ')
-  const members = A.words.map((w) => w.toLowerCase())
-  const cat = phraseCatalog(d, members)
-  const hitId = spansFor(cat, members, (_id, hit) => hit[0] === 0 && hit[hit.length - 1] === members.length - 1, true)[0]
-  const matched = hitId ? d.pieces[hitId] || DEMO_ENTRIES[hitId] || catalogPhraseOf(hitId) : undefined
-  const id = hitId || 'ph_' + members.map(lemmatize).join('_')
+  const { kept, lemmaParts, lemma, members, text, maxGap, hitId, matched, doc, p } = annPhrasePreview(d, A)
+  if (kept.length < 2 || kept.length > 6 || maxGap > 6 || !doc || !p) return
+  const sents = sentencesByWord(p.t || '')
+  const firstWi = kept[0].wi
+  if (kept.some((x) => sents[x.wi] !== sents[firstWi])) return app().say('短语不能跨句')
+  const id = hitId || 'ph_' + lemmaParts.map((x) => (x === '…' ? 'gap' : x.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, ''))).join('_')
   if (d.learn[id]) return app().say('已在拼块中')
   const head = matched?.parentLemma || phraseHead(members)
-  const sent = sentencesByWord(p.t || '')[A.w0] || stripCites(p.t || '')
+  const sent = sents[firstWi] || stripCites(p.t || '')
   const e: Entry = matched
     ? { ...matched, form: text, s: sent }
     : {
-        lemma: text,
+        lemma,
         ph: '',
         pos: 'phrase',
         tile: '短语',
         form: text,
-        ans: text.toLowerCase(),
+        ans: members.join(' '),
         parentLemma: head,
         members,
         s: sent,
-        conf: { opts: [text, members.slice(0, -1).join(' ') || members[0], members.slice(1).join(' ') || members[0]], why: `原文搭配是「${text}」。` },
-        ai: { zh: text, en: '', ex: `挂靠在核心词 ${head} 下`, tr: sent, st: '', fam: [] },
+        conf: { opts: [lemma, members.slice(0, -1).join(' ') || members[0], members.slice(1).join(' ') || members[0]], why: `原文搭配是「${lemma}」。` },
+        ai: { zh: lemma, en: '', ex: `挂靠在核心词 ${head} 下`, tr: sent, st: '', fam: [] },
       }
   void ensureSenses(head)
-  const rect = document.querySelector(`#col p[data-id="${CSS.escape(A.pid)}"] .w[data-wi="${A.w0}"]`)?.getBoundingClientRect() ?? null
-  const sel: Sel = { docId: doc.id, pid: A.pid, wi: A.w0, w: members[0], lm: lemmatize(members[0]), pg: p.pg, s: sent, mode: 'here', k: id, cands: [id], freePh: null, part: null }
-  const ctx = phraseContext(d, id, e, { pid: A.pid, wi: A.w0, doc: doc.title, s: sent }, '词族关联')
+  const sel: Sel = { docId: doc.id, pid: A.pid, wi: firstWi, w: kept[0].w.toLowerCase(), lm: kept[0].lm, pg: p.pg, s: sent, mode: 'here', k: id, cands: [id], freePh: null, part: null }
+  const rect = wordRect(sel)
+  const ctx = phraseContext(d, id, e, { pid: A.pid, wi: firstWi, doc: doc.title, s: sent }, '词族关联')
   if (!ctx) {
     rs().set({ ann: null, sel })
     return

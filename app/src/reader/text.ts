@@ -75,7 +75,7 @@ export function phraseGaps(lemma: string, fallbackMembers?: string[]): { raw: st
     }
     const w = part.replace(/[^a-z0-9'-]/g, '')
     if (!w) continue
-    gaps.push(raw.length === 0 ? 0 : gap ? 4 : 0)
+    gaps.push(raw.length === 0 ? 0 : gap ? 6 : 0)
     raw.push(w)
     gap = false
   }

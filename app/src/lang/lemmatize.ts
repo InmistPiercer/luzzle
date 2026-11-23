@@ -75,13 +75,14 @@ const LINK = new Set(['seem', 'seems', 'seemed', 'look', 'looks', 'looked', 'fee
 const BE = new Set(['be', 'is', 'are', 'was', 'were', 'been', 'being', 'am'])
 const HAVE = new Set(['have', 'has', 'had', 'having'])
 
-export function participleAsAdj(words: string[], i: number): boolean {
+export function participleAsAdj(words: string[], i: number, pos?: PosTag): boolean {
   const prev = words[i - 1]?.toLowerCase() || ''
   const next = words[i + 1]?.toLowerCase() || ''
   if (next === 'by') return false
   if (DEGREE.has(prev) || DET.has(prev) || LINK.has(prev)) return true
   if (BE.has(prev)) return ['to', 'that', 'about'].includes(next)
   if (HAVE.has(prev)) return false
+  if (pos === 'n.' && prev && !FUNC_SET.has(prev) && posGuess(prev) === 'adj.') return true
   return !!next && !FUNC_SET.has(next) && posGuess(next) === 'n.'
 }
 
