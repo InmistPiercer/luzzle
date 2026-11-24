@@ -73,7 +73,7 @@ describe('rebuild', () => {
   })
 })
 
-import { faithful as ok, words as ws } from './extract'
+import { clean, faithful as ok, joinHyphen, mathy, pageLines, ruleParas, words as ws } from './extract'
 it('math notation tokens are skipped by the checker', () => {
   const hay = ws('In contrastive learning, the xselfi based on its own samples should have a stronger semantic bias than the xotheri based on other samples.')
   expect(ok('In contrastive learning, the x_i^self based on its own samples should have a stronger semantic bias than the x_i^other based on other samples.', hay)).toBe(true)
@@ -169,5 +169,97 @@ describe('parallel rebuild', () => {
     })
     expect(out).toEqual([2, 4, 6, 8, 10, 12])
     expect(peak).toBe(4)
+  })
+})
+
+describe('economist & multi-column pdf fixes', () => {
+  it('accepts legitimately reordered fragments and split-hyphen rejoins in faithful()', () => {
+    const hay = ws('Second column continuation ends clearly here. First column opening starts dispro 12 The Economist proportionately here.')
+    expect(ok('First column opening starts disproportionately here. Second column continuation ends clearly here.', hay)).toBe(true)
+    expect(ok('First column opening invents completely fabricated claims here.', hay)).toBe(false)
+  })
+
+  it('joins cross-chunk continuations across captions and hyphens, and cleans stray markers', async () => {
+    const multi: DocData = {
+      ...doc,
+      paras: [
+        { id: 'u1-P1', pg: 1, raw: '', t: 'Its ill-considered design means that it is Mr Polanski’s dispro-' },
+        { id: 'u1-P2', pg: 2, raw: '', t: 'portionately young voters who would lose the most.' },
+      ],
+      aiChunks: [
+        {
+          pages: [1, 2],
+          text: [
+            '--- PAGE 1 ---',
+            ...Array.from({ length: 50 }, (_, i) =>
+              i === 0 ? 'B0|9.0|¶ Its ill-considered design means that it is Mr Polanski’s dispro-' : 'B1|7.0|Fattening cats chart',
+            ),
+            '--- PAGE 2 ---',
+            'B0|9.0|portionately young voters who would lose the most. ■ ⏩',
+          ].join('\n'),
+        },
+      ],
+    }
+    const f = (async (_u: string, init: RequestInit) => {
+      const user = JSON.parse(init.body as string).messages[1].content as string
+      const blocks = user.includes('PAGE 1')
+        ? [
+            { type: 'para', text: 'Its ill-considered design means that it is Mr Polanski’s dispro-' },
+            { type: 'caption', text: 'Fattening cats chart' },
+          ]
+        : [{ type: 'para', text: 'portionately young voters who would lose the most. ■ ⏩', cont: true }]
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ blocks }) } }] }))
+    }) as unknown as typeof fetch
+    const { paras, summary } = await rebuildDoc(multi, deps(f))
+    expect(summary.unverified).toBe(0)
+    expect(paras.map((p) => p.kind)).toEqual(['para', 'caption'])
+    expect(paras[0].t).toBe('Its ill-considered design means that it is Mr Polanski’s disproportionately young voters who would lose the most.')
+  })
+
+  it('coalesces Economist small-caps onto one line and drops microscopic printer codes', () => {
+    const ls = pageLines(
+      {
+        n: 23,
+        w: 612,
+        h: 792,
+        items: [
+          { s: 'C002', x: 0, y: 0, w: 2.4, fs: 1 },
+          { s: 'E', x: 77, y: 169.5, w: 9.2, fs: 15 },
+          { s: 'ARNING A NAME', x: 86.2, y: 169.5, w: 100.2, fs: 12.5 },
+          { s: 'for issuing empty threats can be devastating.', x: 191.7, y: 169.5, w: 320, fs: 15 },
+        ],
+      },
+      15,
+    )
+    expect(ls).toHaveLength(1)
+    expect(ls[0].text).toBe('EARNING A NAME for issuing empty threats can be devastating.')
+  })
+
+  it('does not drop financial prose lines as math, preserves chained hyphens, and keeps 3-column bottom lines', () => {
+    expect(mathy('compensation was £9.2m in 2024-25, whereas workers earned £12.02 an hour (£24,000 a year).')).toBe(false)
+    expect(mathy('In the 1970s and 2020s, a 100bn-yuan fund built 3D printers worth $32trn.')).toBe(false)
+    expect(mathy('x1 + y2 = z3 for all k0')).toBe(true)
+    expect(joinHyphen('ten-to-', 'one')).toBe('ten-to-one')
+    expect(joinHyphen('dispro-', 'portionately')).toBe('disproportionately')
+    expect(clean('The end of the article. ■ ⏩')).toBe('The end of the article.')
+
+    const pg = { n: 14, w: 567, h: 756.8, items: [] }
+    const rules = ruleParas(
+      [
+        [
+          { col: 'B0', y: 630, x: 77, w: 300, fs: 30, text: 'America’s dangerous pursuit' },
+          { col: 'B0', y: 594, x: 77, w: 280, fs: 30, text: 'of critical-mineral dominance' },
+          { col: 'B1', y: 40, x: 31.5, w: 160, fs: 9, text: 'In 2019 only five songs in Denmark were in Danish.' },
+          { col: 'B1', y: 33, x: 31.5, w: 160, fs: 9, text: 'compensation was £9.2m in 2024-25, whereas workers earned' },
+          { col: 'B1', y: 26.9, x: 31.5, w: 160, fs: 9, text: '£12.02 an hour (less than £24,000 a year full-time).' },
+          { col: 'B2', y: 28, x: 400, w: 20, fs: 8, text: '14' },
+        ],
+      ],
+      [pg],
+      9,
+    )
+    expect(rules[0]).toEqual({ h: 'America’s dangerous pursuit of critical-mineral dominance', pg: 14 })
+    expect(rules[1].t).toContain('£9.2m in 2024-25')
+    expect(rules[1].t).toContain('£12.02 an hour (less than £24,000 a year full-time).')
   })
 })

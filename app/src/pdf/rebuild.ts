@@ -1,7 +1,7 @@
 import { callLong, type CallDeps } from '../ai/client'
 import { AIError, type AIConfig } from '../ai/types'
 import type { DocData, Para, ParaKind } from '../core/types'
-import { faithful, PROMPT, words } from './extract'
+import { clean, faithful, joinHyphen, PROMPT, words } from './extract'
 
 export interface RebuildBlock {
   type: string
@@ -20,12 +20,14 @@ export interface RebuildSummary {
 
 const KIND: Record<string, ParaKind> = { para: 'para', list: 'list', standfirst: 'standfirst', abstract: 'abstract', caption: 'caption', equation: 'equation', backmatter: 'back' }
 
+const joinCont = (a: string, b: string) => (/[\u00AD-]$/.test(a) ? joinHyphen(a, b) : `${a} ${b}`)
+
 export function mergeCont(blocks: RebuildBlock[]): RebuildBlock[] {
   const out: RebuildBlock[] = []
   for (const b of blocks) {
     const prev = [...out].reverse().find((x) => x.type !== 'skip' && x.type !== 'caption')
     if (b.cont && prev && ['para', 'list'].includes(prev.type) && ['para', 'list'].includes(b.type)) {
-      prev.text = /[­-]$/.test(prev.text) ? prev.text.replace(/[­-]$/, '') + b.text : `${prev.text} ${b.text}`
+      prev.text = joinCont(prev.text, b.text)
       continue
     }
     out.push({ ...b })
@@ -93,7 +95,8 @@ export async function rebuildDoc(doc: DocData, deps: RebuildDeps): Promise<{ par
     const lines = chunkLines(ch.text)
     const hay = words(`${lastPara} ${lines.join(' ')}`)
     for (const b of mergeCont(blocks)) {
-      const text = String(b.text || '').trim()
+      const rawText = String(b.text || '').trim()
+      const text = b.type === 'equation' ? rawText : clean(rawText)
       if (b.type === 'skip') {
         summary.removed++
         continue
@@ -115,9 +118,9 @@ export async function rebuildDoc(doc: DocData, deps: RebuildDeps): Promise<{ par
       if (kind === 'abstract') summary.abstract++
       const first = words(t).slice(0, 3).join(' ')
       const pi = ch.pages.find((pg, i) => words(chunkLines(pageText(ch.text, pg)).join(' ')).join(' ').includes(first) || i === ch.pages.length - 1)
-      const last = out[out.length - 1]
-      if (b.cont && last && last.t && ['para', 'list'].includes(last.kind || 'para') && kind === 'para') {
-        last.t = `${last.t} ${t}`
+      const prevPara = b.cont ? [...out].reverse().find((x) => x.t && !x.h && x.kind !== 'caption') : undefined
+      if (prevPara && ['para', 'list'].includes(prevPara.kind || 'para') && ['para', 'list'].includes(kind)) {
+        prevPara.t = joinCont(prevPara.t!, t)
       } else out.push({ id: `${doc.id}-A${++n}`, pg: pi || ch.pages[0], raw: '', t, kind })
       if (['para', 'list', 'abstract'].includes(kind)) lastPara = t
     }

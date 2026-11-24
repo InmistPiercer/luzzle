@@ -34,13 +34,31 @@ export const words = (s) =>
 export function faithful(out, hay) {
   const o = words(out)
   if (!o.length) return true
-  let j = 0
+  const counts = new Map()
+  for (const w of hay) counts.set(w, (counts.get(w) || 0) + 1)
+  const take = (w) => {
+    const c = counts.get(w) || 0
+    if (c <= 0) return false
+    counts.set(w, c - 1)
+    return true
+  }
   let miss = 0
   for (const w of o) {
-    let k = j
-    while (k < hay.length && hay[k] !== w) k++
-    if (k < hay.length) j = k + 1
-    else miss++
+    if (take(w)) continue
+    let joined = false
+    if (w.length >= 6) {
+      for (let i = 2; i <= w.length - 2; i++) {
+        const a = w.slice(0, i)
+        const b = w.slice(i)
+        if ((counts.get(a) || 0) > 0 && (counts.get(b) || 0) > 0) {
+          take(a)
+          take(b)
+          joined = true
+          break
+        }
+      }
+    }
+    if (!joined) miss++
   }
   return miss <= Math.max(1, Math.floor(o.length * 0.03))
 }
@@ -90,8 +108,9 @@ export function bodySize(pages) {
 }
 
 export function pageLines(p, body) {
-  const caps = p.items.filter((t) => t.fs >= body * 1.8 && /^[A-Z“"‘']{1,2}$/.test(t.s.trim()))
-  const rest = p.items.filter((t) => !caps.includes(t))
+  const valid = p.items.filter((t) => t.fs >= 3)
+  const caps = valid.filter((t) => t.fs >= body * 1.8 && /^[A-Z“"‘']{1,2}$/.test(t.s.trim()))
+  const rest = valid.filter((t) => !caps.includes(t))
   const rows = []
   ;[...rest]
     .sort((a, b) => b.fs - a.fs)
@@ -103,6 +122,25 @@ export function pageLines(p, body) {
         r.x1 = Math.max(r.x1, t.x + t.w)
       } else rows.push({ y: t.y, x0: t.x, x1: t.x + t.w, items: [t] })
     })
+  let coalesced = true
+  while (coalesced) {
+    coalesced = false
+    for (let i = 0; i < rows.length; i++) {
+      for (let j = i + 1; j < rows.length; j++) {
+        const a = rows[i]
+        const b = rows[j]
+        if (Math.abs(a.y - b.y) < body * 0.5 && b.x0 <= a.x1 + body * 0.9 && b.x1 >= a.x0 - body * 0.9) {
+          a.items.push(...b.items)
+          a.x0 = Math.min(a.x0, b.x0)
+          a.x1 = Math.max(a.x1, b.x1)
+          rows.splice(j, 1)
+          coalesced = true
+          break
+        }
+      }
+      if (coalesced) break
+    }
+  }
   for (const c of caps) {
     const cands = rows.filter((r) => r.x0 > c.x && r.x0 < c.x + c.w + body * 3 && r.y <= c.y + c.fs * 1.1 && r.y >= c.y - body)
     const target = cands.sort((a, b) => b.y - a.y)[0]
@@ -153,7 +191,7 @@ export function pageLines(p, body) {
   const blocks = cut(ls.filter((l) => l.text), 0)
   const out = []
   blocks.forEach((b, bi) => {
-    b.sort((x, y) => y.y0 - x.y0)
+    b.sort((x, y) => (Math.abs(y.y0 - x.y0) > body * 0.35 ? y.y0 - x.y0 : x.x0 - y.x0))
     b.forEach((l) => out.push({ col: `B${bi}`, y: l.y0, x: l.x0, w: l.x1 - l.x0, fs: l.fs, text: l.text }))
   })
   return out
@@ -217,10 +255,12 @@ export async function loadDictWords() {
 
 const inDict = (w) => !!dictWords?.has(w.toLowerCase())
 
-const joinHyphen = (prev, next) => {
+export const joinHyphen = (prev, next) => {
   const a = (prev.match(/([A-Za-z]+)[\u00AD-]$/) || [])[1] || ''
   const b = (next.match(/^([A-Za-z]+)/) || [])[1] || ''
-  const keep = prev.endsWith('-') && a.length > 1 && b.length > 1 && inDict(a) && inDict(b) && !inDict(a + b)
+  const hasDict = !!(dictWords && dictWords.size > 0)
+  const chained = /[A-Za-z]+-[A-Za-z]+-$/.test(prev) && (!hasDict || (inDict(a) && inDict(b)))
+  const keep = prev.endsWith('-') && (chained || (a.length > 1 && b.length > 1 && inDict(a) && inDict(b) && !inDict(a + b)))
   return keep ? prev + next : prev.replace(/[\u00AD-]$/, '') + next
 }
 
@@ -229,24 +269,30 @@ export const clean = (t) =>
     .replace(/\s*https?:\/\/t\.me\/\S+/g, '')
     .replace(/·/g, '')
     .replace(/^▸\s*/, '')
+    .replace(/[⏩]/g, '')
     .replace(/\s*■\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim()
 
 const MATH = /[=⋅∑Σ∫∂√≤≥≈∈×÷∥‖ʹ′]/
 const SHORT = new Set(['a', 'an', 'as', 'at', 'be', 'by', 'do', 'go', 'he', 'i', 'if', 'in', 'is', 'it', 'me', 'my', 'no', 'of', 'on', 'or', 'so', 'to', 'up', 'us', 'we'])
+const PROSE_NUM = /^(?:\d+(?:[.,]\d+)?(?:st|nd|rd|th|s|k|m|bn|trn|p|g|kg|mg|km|cm|mm|ml|gb|mb|tb|hz|ghz|mw|gw|kw|pt|px|am|pm)|[123]d)$/i
 const realWord = (w) => {
   const x = w.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').toLowerCase()
   if (!/^[a-z]+(-[a-z]+)*$/.test(x)) return false
   if (x.length <= 2) return SHORT.has(x) && x !== 'i'
-  return x.split('-').every((p) => inDict(p) || p.length > 3)
+  return x.split('-').every((p) => (dictWords && dictWords.size > 0 ? inDict(p) : p.length >= 3) || p.length > 3)
 }
 const mathTok = (w) => {
   const x = w.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '')
   if (!/[A-Za-z]/.test(x)) return null
   if (/^[A-Za-z]$/.test(x)) return !/^[aAI]$/.test(x)
-  if (/\d/.test(x)) return true
-  if (/^[a-z]+$/.test(x) && x.length <= 6 && !inDict(x) && !SHORT.has(x) && !['et', 'al', 'vs', 'eg', 'ie'].includes(x)) return true
+  if (/\d/.test(x)) {
+    if (PROSE_NUM.test(x)) return false
+    if (x.includes('-') && x.split('-').every((p) => !p || /^\d+$/.test(p) || PROSE_NUM.test(p) || realWord(p))) return false
+    return true
+  }
+  if (dictWords && dictWords.size > 0 && /^[a-z]+$/.test(x) && x.length <= 6 && !inDict(x) && !SHORT.has(x) && !['et', 'al', 'vs', 'eg', 'ie'].includes(x)) return true
   return false
 }
 export const hasMathTok = (t) => MATH.test(t) || t.split(/\s+/).some((w) => mathTok(w) === true)
@@ -275,7 +321,15 @@ export function ruleParas(pagesLines, pages, body) {
     let prevText = ''
     let prevFs = 0
     const kept = lines
-      .filter((l) => l.y < p.h * 0.93 && l.y > p.h * 0.055 && l.fs >= body * 0.92 && !JUNK.test(l.text))
+      .filter(
+        (l) =>
+          l.y < p.h * 0.93 &&
+          l.y > p.h * 0.025 &&
+          l.fs >= body * 0.92 &&
+          !JUNK.test(l.text) &&
+          !(l.y < p.h * 0.06 && l.fs < body * 0.98 && l.text.split(' ').length <= 6) &&
+          !(l.y < p.h * 0.06 && /^(page\s*)?\d+$/i.test(l.text.trim())),
+      )
       .map((l) => ({ ...l, text: clean(l.text) }))
       .filter((l) => l.text)
     const lefts = {}
@@ -299,15 +353,26 @@ export function ruleParas(pagesLines, pages, body) {
       const subhead = clean0 && shortLine && out.some((o) => o.t) && /^[A-Z]/.test(l.text) && !hasMathTok(l.text) && !/,/.test(l.text) && l.text.split(' ').some((w) => realWord(w) && w.length >= 3) && !/[.?!:;,"”)\]]$/.test(l.text) && l.text.split(' ').length <= 8 && (gap == null || gap > lineGap * 1.3) && (!last || ends(prevText) || prevText === '')
       const bigHead = clean0 && l.fs >= body * 1.1 && l.y < p.h * 0.85 && !hasMathTok(l.text) && !/\*/.test(l.text) && (l.text.match(/,/g) || []).length <= 1 && (l.fs >= body * 1.6 || out.some((o) => o.t)) && /^[A-Z“"‘(]/.test(l.text) && l.text.split(' ').length <= 12 && !/[.;:]$/.test(l.text) && l.text.split(' ').some((w) => realWord(w) && w.length >= 3)
       const head = numbered || subhead || bigHead
-      if (!head && headOpen && /^[a-z]/.test(l.text) && gap != null && gap < lineGap * 1.4 && !mathy(l.text)) {
-        out[out.length - 1].h += ` ${l.text}`
+      const bigHeadCont =
+        headOpen &&
+        prevFs >= body * 1.5 &&
+        Math.abs(l.fs - prevFs) < 1 &&
+        gap != null &&
+        gap < l.fs * 1.6 &&
+        !mathy(l.text)
+      if ((!head && headOpen && /^[a-z]/.test(l.text) && gap != null && gap < lineGap * 1.4 && !mathy(l.text)) || bigHeadCont) {
+        const curH = out[out.length - 1].h
+        out[out.length - 1].h = /[\u00AD-]$/.test(curH) && /^[a-z]/.test(l.text) ? joinHyphen(curH, l.text) : `${curH} ${l.text}`
         prevY = l.y
         prevCol = l.col
+        prevFs = l.fs
         continue
       }
       headOpen = false
-      if (!head && (lettersRatio < 0.55 || mathy(l.text) || (l.text.split(' ').length <= 2 && !l.text.split(' ').every(realWord)))) {
-        if (MATH.test(l.text) || lettersRatio < 0.55) last = null
+      const proseWords = l.text.split(' ').filter((w) => realWord(w) && w.replace(/[^A-Za-z]/g, '').length >= 2).length
+      const lowLetters = lettersRatio < (proseWords >= 3 ? 0.4 : 0.55)
+      if (!head && (lowLetters || mathy(l.text) || (l.text.split(' ').length <= 2 && !l.text.split(' ').every(realWord)))) {
+        if (MATH.test(l.text) || lowLetters) last = null
         continue
       }
       if (!head && !last) l.text = stripLead(l.text)
@@ -315,7 +380,7 @@ export function ruleParas(pagesLines, pages, body) {
       if (head) {
         out.push({ h: l.text.replace(/^(\d+(\.\d+)*)\.?\s*/, '$1 '), pg: p.n })
         last = null
-        headOpen = numbered
+        headOpen = numbered || l.fs >= body * 1.5
       } else if (!last || (prevFs && Math.max(l.fs, prevFs) / Math.min(l.fs, prevFs) > 1.25) || (gap != null && gap > lineGap * 1.45) || (indent && ends(prevText)) || (gap == null && ends(last.t))) {
         last = { t: out.length && out[out.length - 1].h && /^[a-z]/.test(l.text) ? l.text[0].toUpperCase() + l.text.slice(1) : l.text, pg: p.n }
         out.push(last)

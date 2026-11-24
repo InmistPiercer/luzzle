@@ -47,6 +47,7 @@ export function detectArticles(allLines: PdfLine[][], body: number): { title: st
 export const JUNK: RegExp
 export function loadDictWords(): Promise<void>
 export function clean(t: string): string
+export function joinHyphen(prev: string, next: string): string
 export function ruleParas(pagesLines: PdfLine[][], pages: PdfPage[], body: number): RulePara[]
 export function mathy(t: string): boolean
 export function stripLead(t: string): string
