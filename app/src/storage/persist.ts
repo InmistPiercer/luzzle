@@ -17,14 +17,17 @@ const docsById = (docs: AppState['docs']) => new Map(docs.map((doc) => [doc.id, 
 
 export class StaleStateError extends Error {}
 
-async function writeState(state: AppState, db: LuzzleDB, previous?: AppState) {
+type RelatedWrite = (db: LuzzleDB) => Promise<void>
+
+async function writeState(state: AppState, db: LuzzleDB, previous?: AppState, related?: RelatedWrite) {
   const { docs, ...rest } = state
   const baseline = baselines.get(db)
   const nextDocs = docsById(docs)
   const put = docs.filter((doc) => baseline?.docs.get(doc.id) !== doc)
   const del = baseline ? [...baseline.docs.keys()].filter((id) => !nextDocs.has(id)) : []
   const revision = (baseline?.revision ?? 0) + 1
-  await db.transaction('rw', db.kv, db.docs, async () => {
+  const tables = related ? [db.kv, db.docs, db.cache, db.reviews] : [db.kv, db.docs]
+  await db.transaction('rw', tables, async () => {
     const current = await db.kv.get(STATE_KEY)
     const currentRevision = current ? current.revision ?? 0 : null
     if (currentRevision !== (baseline?.revision ?? null)) throw new StaleStateError()
@@ -32,13 +35,14 @@ async function writeState(state: AppState, db: LuzzleDB, previous?: AppState) {
     await db.kv.put({ key: STATE_KEY, value: rest, revision })
     if (del.length) await db.docs.bulkDelete(del)
     if (put.length) await db.docs.bulkPut(put)
+    await related?.(db)
   })
   baselines.set(db, { revision, docs: nextDocs })
   return { put: put.length, del: del.length }
 }
 
-export function saveState(state: AppState, db: LuzzleDB = defaultDb, previous?: AppState) {
-  const write = () => writeState(state, db, previous)
+export function saveState(state: AppState, db: LuzzleDB = defaultDb, previous?: AppState, related?: RelatedWrite) {
+  const write = () => writeState(state, db, previous, related)
   const next = (saveQueues.get(db) || Promise.resolve()).then(write, write)
   saveQueues.set(db, next)
   return next

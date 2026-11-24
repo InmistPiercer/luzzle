@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const modeArgs = process.argv.includes('--test') ? ['--mode', 'test'] : []
-const port = '5178'
+const port = modeArgs.length ? '5179' : '5178'
 const url = `http://127.0.0.1:${port}`
 const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 

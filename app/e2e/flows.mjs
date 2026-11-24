@@ -112,7 +112,11 @@ for (const st of STYLES) {
   p.on('console', (m) => m.type() === 'error' && !/fonts\.(googleapis|gstatic)|ERR_FAILED|net::/.test(m.text()) && errors.push(`${st} console: ${m.text().slice(0, 200)}`))
   await p.route(/fonts\.(googleapis|gstatic)\.com/, (r) => r.abort())
   await p.goto(URL)
-  await p.waitForTimeout(2500)
+  await p.locator('.app').waitFor()
+  if ((await p.title()) !== 'Luzzle · 测试版') {
+    await browser.close()
+    throw new Error('浏览器回归需要测试版，请先运行 npm run dev:test')
+  }
   await settings(p, () => p.click(`.style-card:has-text("${st}")`))
   await go(p, 'read')
   await snap(p, st, 'read')
@@ -130,6 +134,7 @@ for (const st of STYLES) {
   await settings(p, () => p.click('button:has-text("模拟次日")'))
   await forgeRun(p, st, 'day2')
   await settings(p, () => p.click('button:has-text("回到今天")'))
+  await p.locator('.forge-main').waitFor()
   await ctx.close()
 }
 await browser.close()

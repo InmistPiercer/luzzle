@@ -34,9 +34,10 @@ export interface ProviderSpec {
   usage: (body: unknown) => Tokens
   readDelta?: (chunk: unknown) => string
   streamUsage?: (chunk: unknown, acc: Tokens) => Tokens
+  streamStatus?: (chunk: unknown) => 'done' | 'error' | undefined
 }
 
-export type AIErrorCode = 'no-key' | 'quota' | 'timeout' | 'network' | 'http' | 'format' | 'insecure-url'
+export type AIErrorCode = 'no-key' | 'quota' | 'timeout' | 'network' | 'http' | 'format' | 'insecure-url' | 'cancelled'
 
 export class AIError extends Error {
   code: AIErrorCode

@@ -4,6 +4,7 @@ export interface PdfItem {
   y: number
   w: number
   fs: number
+  sp?: boolean
 }
 
 export interface PdfPage {

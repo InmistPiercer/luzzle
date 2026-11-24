@@ -21,6 +21,7 @@ export const shuffle = <T,>(arr: T[], seed: string) =>
 const PLACEHOLDER = new Set(['新义', '短语'])
 
 export const isZh = (s: string | undefined) => !!s && /[\u4e00-\u9fff]/.test(s) && !/[A-Za-z]/.test(s)
+const isEnglish = (s: string | undefined): s is string => !!s && /[A-Za-z]/.test(s) && !/\p{Script=Han}/u.test(s)
 
 export const srcSentence = (d: AppState, id: string) => stripCites(d.learn[id]?.occ[0]?.s || d.pieces[id]?.s || '')
 
@@ -81,15 +82,7 @@ export function meaningOf(e: Entry | undefined, lang: 'zh' | 'en' = 'zh'): strin
   if (lang === 'en') {
     const lm = (e.lemma || '').toLowerCase()
     const defHit = e.pos === 'phrase' ? phraseRow(lm)?.[5] || phraseRow(lm)?.[4] : dictDefs(lm).find((d) => d[0] === e.pos)?.[1] || dictDefs(lm)[0]?.[1]
-    const en =
-      (e.sid ? e.en : '') ||
-      e.ai?.en ||
-      e.en ||
-      EN_GLOSS[e.lemma] ||
-      EN_GLOSS[lm] ||
-      defHit ||
-      (e.gloss && /[A-Za-z]/.test(e.gloss) && !isZh(e.gloss) ? e.gloss : '')
-    if (en) return en
+    return [(e.sid ? e.en : ''), e.ai?.en, e.en, EN_GLOSS[e.lemma], EN_GLOSS[lm], defHit, e.gloss].find(isEnglish) || ''
   }
   if (e.gloss && isZh(short(e.gloss))) return e.gloss
   const cands = [e.ai?.zh, PLACEHOLDER.has(e.tile || '') ? '' : e.tile, ...(e.dict || [])].map((x) => short(x || ''))
@@ -102,7 +95,7 @@ export function wordDefOf(e: Entry | undefined, lang: 'zh' | 'en' = 'en'): strin
   if (!e) return ''
   const row = senseById(e.sid)
   if (lang === 'en') {
-    const en = row?.[6] || (e.ai?.en && !/[\u4e00-\u9fff]/.test(e.ai.en) ? e.ai.en : '') || pieceGlossFor(e, 'en')
+    const en = [row?.[6], e.ai?.en, meaningOf(e, 'en')].find(isEnglish) || ''
     return en.replace(POS_LEAD_RE, '').trim()
   }
   if (row?.[3]) return row[3]
@@ -115,7 +108,8 @@ export function wordDefOf(e: Entry | undefined, lang: 'zh' | 'en' = 'en'): strin
 
 export const hasMeaning = (d: AppState, id: string) => {
   const e = d.pieces[id]
-  return !!e && ((e.mean || []).some(isZh) || !!meaningOf(e, d.prefs.defLang || 'en'))
+  const lang = d.prefs.defLang || 'en'
+  return !!e && (!!meaningOf(e, lang) || (lang === 'zh' && (e.mean || []).some(isZh)))
 }
 
 let dictPool: { pos: string; zh: string; w: string }[] | null = null
@@ -160,12 +154,12 @@ export function meaningChoices(d: AppState, id: string, lang: 'zh' | 'en' = 'zh'
   const e = d.pieces[id]
   if (lang === 'en') {
     const ans = meaningOf(e, 'en')
-    if (ans && !isZh(ans)) {
+    if (ans) {
       const pos = e.pos || 'v.'
       const owner: Record<string, string> = {}
       const picks: string[] = []
       const tryAddEn = (txt: string, w: string) => {
-        if (picks.length >= 2 || !txt || isZh(txt) || overlaps(ans, txt) || picks.some((p) => overlaps(p, txt))) return
+        if (picks.length >= 2 || !isEnglish(txt) || overlaps(ans, txt) || picks.some((p) => overlaps(p, txt))) return
         picks.push(txt)
         if (w) owner[txt] = w
       }
@@ -185,6 +179,7 @@ export function meaningChoices(d: AppState, id: string, lang: 'zh' | 'en' = 'zh'
       }
       return { opts: [ans, ...picks], owner }
     }
+    return { opts: [], owner: {} }
   }
   const curated = (e.mean || []).filter(isZh)
   if (curated.length >= 2) return { opts: curated, owner: {} }

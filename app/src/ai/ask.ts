@@ -3,7 +3,7 @@ import { today } from '../core/date'
 import { callAI, type CallDeps } from './client'
 import type { ChatMessage } from './types'
 
-type Opts = Partial<Pick<CallDeps, 'timeoutMs' | 'jsonMode' | 'maxTokens' | 'estOut' | 'onPartial' | 'fetch'>>
+type Opts = Partial<Pick<CallDeps, 'timeoutMs' | 'jsonMode' | 'maxTokens' | 'estOut' | 'onPartial' | 'fetch' | 'signal'>>
 
 const usage = () => useApp.getState().usage
 
@@ -13,9 +13,11 @@ export const askJSON = <T = Record<string, unknown>>(prompt: string | ChatMessag
   callAI(useApp.getState().ai, typeof prompt === 'string' ? [{ role: 'user', content: prompt }] : prompt, { ...aiDeps(o), json: true }) as Promise<T>
 
 export const aiErr = (e: unknown, fallback: string) => {
-  const code = (e as { code?: string })?.code
+  const { code, status } = (e || {}) as { code?: string; status?: number }
   if (code === 'quota') return 'AI 额度已满'
   if (code === 'insecure-url') return '远端接口须使用 HTTPS'
+  if (code === 'http' && (status === 401 || status === 403)) return 'AI 接口拒绝授权，请检查 API Key 和模型权限'
+  if (code === 'timeout') return 'AI 请求超时，请重试'
   return fallback
 }
 

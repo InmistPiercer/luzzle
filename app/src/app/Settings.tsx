@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isInsecureRemoteUrl, todayOf, type Tally } from '../ai/client'
-import { money, priceOf, PRICE_DATE, toUSD } from '../ai/pricing'
+import { beijingTime, money, priceOf, priceRate, toUSD } from '../ai/pricing'
 import { PROVIDERS, providerOf } from '../ai/providers'
 import type { AIConfig } from '../ai/types'
 import { allDocs, demoOn } from '../content/docs'
@@ -16,6 +16,7 @@ import { useApp } from './store'
 export function Settings({ open, onClose }: { open: boolean; onClose: () => void }) {
   const data = useApp((x) => x.data)
   const ai = useApp((x) => x.ai)
+  const secretError = useApp((x) => x.aiSecretError)
   const usage = useApp((x) => x.usage)
   const { setAI, setPrefs, resetUsageTotal, update, replace, resetDemo, clearAll, nextDay, resetDay, say } = useApp.getState()
   const [draft, setDraft] = useState<AIConfig>(ai)
@@ -31,16 +32,19 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
   const trimmedBase = draft.baseUrl.trim()
   const insecureUrl = !!trimmedBase && isInsecureRemoteUrl(trimmedBase)
   const day = todayOf(usage, today())
-  const price = priceOf({ ...ai, ...draft }, spec.model)
+  const now = new Date()
+  const price = priceOf({ ...ai, ...draft, price: undefined }, spec.model)
+  const rate = price ? priceRate(price, now) : 1
+  const bj = beijingTime(now)
   const dirty = draft.provider !== ai.provider || draft.baseUrl.trim() !== ai.baseUrl || draft.model.trim() !== ai.model || draft.apiKey.trim() !== ai.apiKey
-  const saveDraft = () => setAI({ provider: draft.provider, baseUrl: draft.baseUrl.trim(), model: draft.model.trim(), apiKey: draft.apiKey.trim() })
+  const saveDraft = () => setAI({ provider: draft.provider, baseUrl: draft.baseUrl.trim(), model: draft.model.trim(), apiKey: draft.apiKey.trim(), price: undefined })
   const closeModal = () => {
     if (dirty) saveDraft()
     onClose()
   }
   const capped = !!price && ai.budget > 0
   const fill = capped ? day.cost / toUSD(ai.budget, ai.cur) : day.req / Math.max(1, ai.dailyLimit)
-  const tally = (t: Tally) => `${t.req} 次 · 输入 ${t.inTok.toLocaleString()} / 输出 ${t.outTok.toLocaleString()} tokens${price ? ` · 约 ${money(t.cost, ai.cur)}` : ''}`
+  const tally = (t: Tally) => `${t.req} 次 · 输入 ${t.inTok.toLocaleString()} / 输出 ${t.outTok.toLocaleString()} tokens${price || t.cost > 0 ? ` · 约 ${money(t.cost, ai.cur)}` : ''}`
 
   const doExport = () => {
     const url = URL.createObjectURL(new Blob([exportBackup(data)], { type: 'application/json' }))
@@ -199,21 +203,9 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
           </div>
           {insecureUrl && <div className="small warn-line">远端接口请使用 https://，避免密钥与阅读文本明文传输</div>}
           <div className="small mut" id="ai-price" style={{ fontWeight: 700 }}>
-            {price && !price.custom
-              ? `${price.label} · 每百万 tokens 输入 ${money(price.in, ai.cur)} / 输出 ${money(price.out, ai.cur)}${price.peak ? ' · 峰时价' : ''} · ${PRICE_DATE}`
-              : price
-                ? '自定义单价'
-                : '未匹配到预设单价（可手动填写）'}
-          </div>
-          <div className="set-row">
-            <label className="small mut" style={{ fontWeight: 700 }}>
-              自定义单价（{ai.cur === 'CNY' ? '¥' : '$'}/百万 tokens）输入{' '}
-              <input type="number" min={0} step={0.01} value={ai.price?.in || ''} style={{ width: 64 }} onChange={(e) => setAI({ price: { in: Number(e.target.value) || 0, out: ai.price?.out || 0 } })} />
-            </label>
-            <label className="small mut" style={{ fontWeight: 700 }}>
-              输出{' '}
-              <input type="number" min={0} step={0.01} value={ai.price?.out || ''} style={{ width: 64 }} onChange={(e) => setAI({ price: { in: ai.price?.in || 0, out: Number(e.target.value) || 0 } })} />
-            </label>
+            {price
+              ? `${price.label}${price.peak === 'deepseek' ? (rate < 1 ? ` · 谷时 5 折（北京时间 ${bj.hhmm}）` : ` · 峰时（北京时间 ${bj.hhmm}）`) : ''} · 输入 ${money(price.in * rate, ai.cur)} / 输出 ${money(price.out * rate, ai.cur)}（每百万 tokens）`
+              : '未内置该模型单价，将按每日次数上限统计'}
           </div>
           <input
             type="password"
@@ -252,25 +244,28 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
             <button
               className={dirty ? 'btn sm' : 'btn alt sm'}
               onClick={() => {
-                saveDraft()
-                say('已保存')
+                void saveDraft().then((ok) => {
+                  if (ok) say('已保存')
+                })
               }}
             >
               保存配置
             </button>
-            {!!(ai.apiKey || draft.apiKey) && (
+            {!!(ai.apiKey || draft.apiKey || secretError === 'delete') && (
               <button
                 className="btn alt sm"
                 onClick={() => {
                   setDraft({ ...draft, apiKey: '' })
-                  setAI({ apiKey: '' })
-                  say('已清除 API Key')
+                  void setAI({ apiKey: '' }).then((ok) => {
+                    if (ok) say('已清除 API Key')
+                  })
                 }}
               >
                 清除 Key
               </button>
             )}
           </div>
+          {secretError && <div className="small warn-line">{secretError === 'delete' ? '系统中的 Key 尚未删除，可重试清除。' : ai.apiKey ? 'API Key 仅在本次会话中有效。' : '上次未能保存 API Key。'}</div>}
         </div>
         <div className="set-sec">
           <h4>
@@ -297,7 +292,11 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
               恢复备份
             </button>
             {desktop && (
-              <button className="btn alt sm" onClick={() => void desktop?.openBackupsFolder()}>
+              <button className="btn alt sm" onClick={() => {
+                void desktop?.openBackupsFolder().catch(() => false).then((ok) => {
+                  if (!ok) say('无法打开自动备份目录')
+                })
+              }}>
                 自动备份目录
               </button>
             )}
@@ -329,12 +328,16 @@ export function Settings({ open, onClose }: { open: boolean; onClose: () => void
               className="btn sm danger-btn"
               style={IS_TEST ? undefined : { marginLeft: 'auto' }}
               onClick={async () => {
-                if (!window.confirm('清空全部文章、拼块与学习记录，从空白状态开始？（可通过撤销或备份恢复）')) return
-                const before = useApp.getState().data
-                useReader.getState().set({ cur: null, sel: null, po: false, ctx: false, ann: null })
+                if (!window.confirm('清空文章、拼块、学习记录和 AI 缓存？现有备份仍可用于恢复。')) return
                 onClose()
                 const restore = await clearAll()
-                say('已清空全部数据', () => void replace(before).then(restore))
+                if (!restore) return
+                useReader.getState().set({ cur: null, sel: null, po: false, ctx: false, ann: null })
+                say('已清空学习数据', () => {
+                  void restore().then((ok) => {
+                    if (ok) say('已撤销清空')
+                  })
+                })
               }}
             >
               清空数据

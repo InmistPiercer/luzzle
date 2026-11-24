@@ -7,11 +7,27 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 app.setName('Luzzle')
 const isTest = process.env.LUZZLE_EDITION === 'test'
+if (isTest) {
+  const profile = path.join(app.getPath('appData'), 'Luzzle Test')
+  fs.mkdirSync(profile, { recursive: true })
+  app.setPath('userData', profile)
+  app.setPath('sessionData', profile)
+}
 const isSmoke = process.env.LUZZLE_SMOKE_TEST === '1'
 const devUrl = process.env.ELECTRON_RENDERER_URL || ''
 const distDir = path.resolve(__dirname, '..', isTest ? 'dist-test' : 'dist')
 const DOC_EXT = /\.(pdf|epub|txt|md|markdown)$/i
 const MAX_BACKUPS = 10
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "connect-src 'self' https: http://localhost:* http://127.0.0.1:* http://[::1]:*",
+].join('; ')
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -112,20 +128,24 @@ function registerIPC() {
     try {
       const text = String(val ?? '')
       if (!text) {
-        await fsp.unlink(secretPath()).catch(() => undefined)
+        await fsp.unlink(secretPath()).catch((error) => {
+          if (error.code !== 'ENOENT') throw error
+        })
         return true
       }
       if (!(await canEncrypt())) return false
       const enc = typeof safeStorage.encryptStringAsync === 'function' ? await safeStorage.encryptStringAsync(text) : safeStorage.encryptString(text)
       await fsp.mkdir(path.dirname(secretPath()), { recursive: true })
-      await fsp.writeFile(secretPath(), enc, { mode: 0o600 })
+      const tmp = `${secretPath()}.tmp`
+      await fsp.writeFile(tmp, enc, { mode: 0o600 })
+      await fsp.rename(tmp, secretPath())
       return true
     } catch {
       return false
     }
   })
 
-  ipcMain.handle('luzzle:backup:auto', async (_ev, json, day) => {
+  const writeBackup = async (json, day) => {
     try {
       if (typeof json !== 'string' || !json.startsWith('{')) return false
       const safeDay = /^\d{4}-\d{2}-\d{2}$/.test(String(day)) ? String(day) : new Date().toISOString().slice(0, 10)
@@ -143,31 +163,23 @@ function registerIPC() {
     } catch {
       return false
     }
+  }
+  let backupWrites = Promise.resolve(false)
+  ipcMain.handle('luzzle:backup:auto', (_ev, json, day) => {
+    backupWrites = backupWrites.then(() => writeBackup(json, day))
+    return backupWrites
   })
 
   ipcMain.handle('luzzle:backup:open-dir', async () => {
     try {
       const dir = backupsDir()
       await fsp.mkdir(dir, { recursive: true })
-      await shell.openPath(dir)
-      return true
+      return await shell.openPath(dir) === ''
     } catch {
       return false
     }
   })
 
-  ipcMain.handle('luzzle:backup:clear', async () => {
-    try {
-      const dir = backupsDir()
-      const files = await fsp.readdir(dir).catch(() => [])
-      for (const f of files) {
-        if (/^luzzle-auto-.*\.json$/.test(f)) await fsp.unlink(path.join(dir, f)).catch(() => undefined)
-      }
-      return true
-    } catch {
-      return false
-    }
-  })
 }
 
 function buildMenu() {
@@ -366,6 +378,7 @@ if (!gotLock) {
           headers: {
             'content-type': mimeOf(target),
             'cache-control': 'no-cache',
+            'content-security-policy': CSP,
           },
         })
       } catch {

@@ -6,6 +6,7 @@ const PRIVACY_INIT: Partial<RequestInit> = {
   referrerPolicy: 'no-referrer',
   credentials: 'omit',
   cache: 'no-store',
+  redirect: 'error',
 }
 
 const openai: ProviderSpec = {
@@ -45,6 +46,13 @@ const openai: ProviderSpec = {
   streamUsage: (chunk, acc) => {
     const u = openai.usage(chunk)
     return u.in || u.out ? u : acc
+  },
+  streamStatus: (chunk) => {
+    if (chunk === '[DONE]') return 'done'
+    const packet = chunk as { error?: unknown; choices?: { finish_reason?: string }[] }
+    if (packet?.error) return 'error'
+    const reason = packet?.choices?.[0]?.finish_reason
+    if (reason) return reason === 'stop' ? 'done' : 'error'
   },
 }
 
@@ -101,6 +109,12 @@ const anthropic: ProviderSpec = {
       return { ...acc, out: c.usage.output_tokens }
     }
     return acc
+  },
+  streamStatus: (chunk) => {
+    const event = chunk as { type?: string; delta?: { stop_reason?: string } }
+    if (event?.type === 'message_stop') return 'done'
+    const reason = event?.delta?.stop_reason
+    if (event?.type === 'error' || (reason && !['end_turn', 'stop_sequence'].includes(reason))) return 'error'
   },
 }
 

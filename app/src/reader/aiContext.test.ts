@@ -1,12 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import { seedDemo } from '../content/seed'
 import { createPiece, entryFromSurface } from '../learn/pieces'
-import { attachAI, dockAI, isMetaAI, occurrenceAI } from './aiContext'
+import { attachAI, contextPreview, dockAI, isMetaAI, normalizeContextAnswer, occurrenceAI, validContextAnswer } from './aiContext'
 
 const T = '2026-11-14'
 const ai = { zh: '迎合，追求', en: 'to try to get', ex: '这里指追求多数读者', tr: '他们并不追逐大众。', st: 'They are not chasing the many', fam: ['pursue 追求'] }
 
 describe('aiContext', () => {
+  it('keeps malformed partial fields out of the preview and refuses to cache them as completed answers', () => {
+    const partial = { sense: 1, en: { text: 'sample' }, tr: '译文', fam: ['sample', 42] }
+    expect(contextPreview(partial)).toEqual({ sense: 1, tr: '译文' })
+    expect(validContextAnswer(partial, 'sense')).toBe(false)
+    expect(validContextAnswer({ sense: 1, en: 'sample' }, 'sense')).toBe(true)
+    expect(validContextAnswer({ sense: 1, en: 'sample' }, 'match')).toBe(false)
+  })
+
+  it('normalizes null optional fields, digit-string indices, and metalinguistic answers from real LLMs', () => {
+    expect(
+      normalizeContextAnswer({ sense: '2', meta: null, zh: '放行', en: 'release', ex: null, fam: null, senses: null }, 'sense'),
+    ).toEqual({ sense: 2, zh: '放行', en: 'release' })
+    expect(
+      normalizeContextAnswer({ sense: null, meta: false, zh: '新义', tr: '译文', reason: null }, 'sense'),
+    ).toEqual({ sense: 0, meta: false, zh: '新义', tr: '译文' })
+    expect(
+      normalizeContextAnswer({ meta: true, zh: '词项讨论', en: 'as a term', reason: null }, 'match'),
+    ).toEqual({ match: 0, meta: true, zh: '词项讨论', en: 'as a term' })
+    expect(normalizeContextAnswer({ zh: '缺失索引' }, 'sense')).toBeNull()
+    expect(normalizeContextAnswer({ sense: 'bad', zh: '无效索引' }, 'sense')).toBeNull()
+  })
+
   it('stores sense on the piece and sentence data on the occurrence', () => {
     const base = createPiece(seedDemo(T), 'chase', entryFromSurface('chasing', 's'), '生词初见', { pid: 'P4-B1', wi: 9, doc: 'D', s: 's' }, T)
     const d = attachAI(base, 'chase', 'P4-B1', ai, true)

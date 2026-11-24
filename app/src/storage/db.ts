@@ -19,7 +19,7 @@ export interface ReviewRow {
   source: string
 }
 
-interface CacheRow {
+export interface CacheRow {
   key: string
   value: unknown
   at: number
@@ -40,6 +40,6 @@ export class LuzzleDB extends Dexie {
   }
 }
 
-export const db = new LuzzleDB()
+export const db = new LuzzleDB(import.meta.env.MODE === 'test' ? 'luzzle-test' : 'luzzle')
 
 export type StoredState = Omit<AppState, 'docs'>

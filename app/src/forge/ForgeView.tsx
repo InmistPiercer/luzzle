@@ -5,9 +5,7 @@ import { EMPTY_SET, useApp } from '../app/store'
 import { diffDays, today } from '../core/date'
 import { useDataSeq } from '../core/shards'
 import { ensureEx } from '../lang/examples'
-import { lexOf } from '../lang/lemmatize'
-import { dictHas } from '../lang/lexdict'
-import { ensureSenses, sensesOfWord } from '../lang/senses'
+import { ensureSenses } from '../lang/senses'
 import { highlightParts } from '../core/text'
 import type { CardKind, Grade } from '../core/types'
 import { cardOf, confirmUse, dueCard, EASIER, forgeQueue, hasSharedSpell, pendingUseOf, taskFor, type Task } from '../learn/engine'
@@ -27,12 +25,10 @@ import { db } from '../storage/db'
 import { accOf, applyPhrase, isLinkedPhrase, parentAsks, phN, phraseFor } from '../learn/phrase'
 import { PhraseCard, PhraseDots } from './PhraseCard'
 
-type Feedback = { kind: 'card'; cls: 'ok' | 'gold'; node: ReactNode } | { kind: 'hint'; node: ReactNode; retry: boolean } | null
+type Feedback = { kind: 'hint'; node: ReactNode; retry: boolean } | null
 
 const BLIND_TASKS: Task[] = ['spell', 'fill', 'choose']
 
-
-const tried = new Set<string>()
 
 type Sent = Sentence & { k?: number }
 
@@ -70,6 +66,12 @@ function Marked({ s, form }: { s: string; form: string }) {
 }
 
 export function ForgeView() {
+  const epoch = useApp((x) => x.dataEpoch)
+  const day = useApp(() => today())
+  return <ForgeSession key={`${epoch}|${day}`} />
+}
+
+function ForgeSession() {
   const d = useApp((x) => x.data)
   const rawAgain = useApp((x) => x.again)
   const againDay = useApp((x) => x.againDay)
@@ -90,10 +92,6 @@ export function ForgeView() {
     setAllRound((r) => r + 1)
     useApp.setState({ forgeWord: null, forgeAll: m === 'all' })
   }
-  useEffect(() => {
-    setAheadDone([])
-    setAllRound((r) => r + 1)
-  }, [day])
   useEffect(() => {
     if (view !== 'forge') return
     if (forgeAll) {
@@ -156,11 +154,12 @@ function WordForge({
   const flags = useRef({ hint: false })
   const [seq, setSeq] = useState(0)
   const [item, setItem] = useState<{ key: string; kind: CardKind; base: { task: Task; hint: boolean }; dueNow: boolean; pend: { s: string } | null; sents: Partial<Record<Task, Sent>> } | null>(null)
-  const [pendOpen, setPendOpen] = useState(false)
   const [phq, setPhq] = useState<{ id: string; counted: boolean } | null>(null)
   const [phOut, setPhOut] = useState<Outcome>(null)
   const root = useRef<HTMLDivElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const request = useRef<AbortController | null>(null)
+  const [aiBusy, setAIBusy] = useState<'judge' | 'example' | null>(null)
   const day = today()
   const again = againDay === day ? rawAgain : EMPTY_SET
   const againStep = againDay === day ? rawAgainStep : {}
@@ -206,6 +205,9 @@ function WordForge({
   if (qmode === 'due' && (order.day !== day || rows.join() !== order.ids.join())) setOrder({ day, ids: rows })
 
   const resetItem = () => {
+    request.current?.abort()
+    request.current = null
+    setAIBusy(null)
     setOver(null)
     setDown(null)
     setGraded(false)
@@ -217,7 +219,6 @@ function WordForge({
     setInput('')
     setPh('拼写')
     setRevealed(false)
-    setPendOpen(false)
     setPhq(null)
     setPhOut(null)
     flags.current = { hint: false }
@@ -231,7 +232,7 @@ function WordForge({
     resetItem()
   }
 
-  const idle = !graded && !revealed && !down && !phq && !pendOpen
+  const idle = !graded && !revealed && !down && !phq
   useEffect(() => {
     if (!k || !d.learn[k] || d.learn[k].goal === 'stash' || (idle && (qmode === 'due' ? !due.includes(k) : aheadSet.has(k)))) {
       select(open[0] || null)
@@ -244,7 +245,13 @@ function WordForge({
     }
   }, [k])
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(() => () => {
+    clearTimeout(timer.current)
+    request.current?.abort()
+  }, [])
+  useEffect(() => {
+    if (view !== 'forge') request.current?.abort()
+  }, [view])
   useEffect(() => {
     if (k && d.pieces[k]) {
       void ensureEx(d.pieces[k].lemma)
@@ -277,6 +284,7 @@ function WordForge({
     it = { key, kind: effKind, base: b, dueNow: !!curDue, pend: pendingUseOf(r, day), sents: {} }
     setItem(it)
   }
+  const pending = it?.pend && it.pend === r?.pendingUse ? it.pend : null
   const kind: CardKind = it?.kind || 'meaning'
   const base = it?.base || { task: 'pick' as Task, hint: false }
   const dueNow = !!it?.dueNow
@@ -305,30 +313,53 @@ function WordForge({
     }
   }
 
-  useEffect(() => {
-    if (view !== 'forge' || !k || !e || !needFresh || sent.fresh || !hasKey || tried.has(k)) return
-    if (!dictHas(e.lemma) && !sensesOfWord(e.lemma).length && !lexOf(e.lemma)) return
-    tried.add(k)
-    const zh = meaningOf(e)
+  const startRequest = (kind: 'judge' | 'example') => {
+    if (request.current) return null
+    const controller = new AbortController()
+    request.current = controller
+    setAIBusy(kind)
+    return controller
+  }
+
+  const finishRequest = (controller: AbortController) => {
+    if (request.current !== controller) return
+    request.current = null
+    setAIBusy(null)
+  }
+
+  const requestIsCurrent = (controller: AbortController) => {
+    const state = useApp.getState()
+    return !controller.signal.aborted && request.current === controller && state.forgeWord === k && state.view === 'forge' && today() === day
+  }
+
+  const generateExample = async () => {
+    if (!k || !e) return
+    const controller = startRequest('example')
+    if (!controller) return
+    const meaning = meaningOf(e)
     const target = e.form || e.lemma
-    askJSON<{ s?: string; a?: string[] }>(
-      `Write one new, natural English sentence (12-25 words) that uses "${target}" in the sense "${zh}". Reply ONLY JSON {"s":"the sentence with the target word replaced by ___","a":["accepted answers in lowercase"]}`,
-      { jsonMode: true, maxTokens: 160, estOut: 80 },
-    )
-      .then((o) => {
-        if (typeof o.s !== 'string' || o.s.split('___').length !== 2 || !Array.isArray(o.a) || !o.a.length || o.a.some((a) => typeof a !== 'string' || !a.trim())) {
-          tried.delete(k)
-          return
-        }
-        const filled = o.s.replace('___', target).trim().toLowerCase()
-        if (filled === srcSentence(d, k).trim().toLowerCase()) {
-          tried.delete(k)
-          return
-        }
-        update((x) => (x.pieces[k] ? { ...x, pieces: { ...x.pieces, [k]: { ...x.pieces[k], alt: [...(x.pieces[k].alt || []), { s: o.s as string, a: o.a || [] }] } } } : x))
+    try {
+      const { s, a } = await askJSON<{ s: string; a: string[] }>(
+        `Write one new, natural English sentence (12-25 words) that uses "${target}" in the sense "${meaning}". Reply ONLY JSON {"s":"the sentence with the target word replaced by ___","a":["accepted answers in lowercase"]}`,
+        { jsonMode: true, maxTokens: 160, estOut: 80, signal: controller.signal },
+      )
+      if (!requestIsCurrent(controller)) return
+      const valid = typeof s === 'string' && s.split('___').length === 2 && Array.isArray(a) && a.length > 0 && a.every((answer) => typeof answer === 'string' && answer.trim())
+      if (!valid || norm(s.replace('___', target)) === norm(srcSentence(d, k))) {
+        useApp.getState().say('未能生成新例句，请重试')
+        return
+      }
+      update((state) => {
+        const piece = state.pieces[k]
+        if (!piece) return state
+        return { ...state, pieces: { ...state.pieces, [k]: { ...piece, alt: [...(piece.alt || []), { s, a }] } } }
       })
-      .catch(() => tried.delete(k))
-  }, [view, k, needFresh, sent.fresh, hasKey])
+    } catch (error) {
+      if (requestIsCurrent(controller)) useApp.getState().say(aiErr(error, '未能生成新例句，请重试'))
+    } finally {
+      finishRequest(controller)
+    }
+  }
 
   const okDelay = style === 'neon' ? 1140 : 920
   const upDelay = style === 'neon' ? 1360 : 1320
@@ -337,6 +368,7 @@ function WordForge({
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       const s = useApp.getState()
+      if (today() !== day) return
       const cur = s.forgeWord
       if (qmodeRef.current === 'all') {
         const curSet = new Set(Object.keys(s.data.learn).filter((id) => s.data.learn[id].goal !== 'stash' && !isLinkedPhrase(s.data.pieces, id)))
@@ -358,7 +390,6 @@ function WordForge({
   }
 
   const setAgain = useApp.getState().markAgain
-  const card = (node: ReactNode, cls: 'ok' | 'gold' = 'ok') => setFb({ kind: 'card', cls, node })
   const hint = (node: ReactNode, retry = true) => setFb({ kind: 'hint', node, retry })
   const shake = (sel: string) => {
     const el = root.current?.querySelector(sel)
@@ -372,7 +403,7 @@ function WordForge({
     const id = phraseFor(st, k, day)
     if (!id) return false
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => setPhq({ id, counted }), style === 'neon' ? 1060 : 700)
+    timer.current = setTimeout(() => { if (today() === day) setPhq({ id, counted }) }, style === 'neon' ? 1060 : 700)
     return true
   }
   const answerPhrase = (id: string, counted: boolean, ok: boolean) => {
@@ -433,9 +464,7 @@ function WordForge({
               <Piece sides={[-1, 1, 1, -1]} wu={100} k={0.84} st={empty ? 0 : 5} lb={<b className="done-check">{empty ? '?' : '✓'}</b>} pos="v." />
             </span>
             <h3>{empty ? '锻造台还空着' : qmode === 'all' ? `全部${sub}完成` : `今日${sub}完成`}</h3>
-            {empty ? (
-              <div className="done-next">在阅读中点击单词摘取拼块</div>
-            ) : (
+            {!empty && (
               <>
                 <div className="done-stats">
                   <div>
@@ -502,10 +531,19 @@ function WordForge({
     const pid = e.parentId as string
     const pe = d.pieces[pid]
     const pr = d.learn[pid]
+    const flipped = phOut !== null && flipAll !== !!flippedMap[pid]
+    const flip = () => {
+      if (phOut !== null) useFlip.getState().toggle([pid])
+    }
     const no = rows.indexOf(k) + 1
     keyAct.current = (ev: KeyboardEvent) => {
       if (useApp.getState().view !== 'forge' || ev.metaKey || ev.ctrlKey || ev.altKey) return
-      if ((ev.target as Element).matches('input,textarea,select')) return
+      if (ev.defaultPrevented || (ev.target as Element).closest('input, textarea, select, [aria-modal="true"]')) return
+      if (ev.key.toLowerCase() === 'f' && phOut !== null) {
+        ev.preventDefault()
+        flip()
+        return
+      }
       handlePhraseKey(ev)
     }
     return (
@@ -523,7 +561,11 @@ function WordForge({
               outcome={null}
               cells={cellsOf(no - 1)}
               phrase={detailOf(k)}
-              piece={(sides) => <Piece sides={sides || [-1, 1, 1, -1]} k={heroK} st={pr.stage} acc={withOk(accOf(d, [pid], k))} lb={<Label word={pe.lemma} fixedGrid />} pos={pe.pos || 'v.'} wu={100} />}
+              piece={(sides) => (
+                <span className="f-piece-stage" onDoubleClick={flip}>
+                  <Piece sides={sides || [-1, 1, 1, -1]} k={heroK} st={pr.stage} acc={withOk(accOf(d, [pid], k))} className={flipped ? 'flipped' : ''} lb={<Label word={pe.lemma} sub={flipped ? pieceGlossFor(pe, defLang === 'en' ? 'zh' : 'en') : undefined} fixedGrid back={flipped} />} pos={pe.pos || 'v.'} wu={100} />
+                </span>
+              )}
             />
           )}
           <div className="forge-card">
@@ -603,10 +645,6 @@ function WordForge({
     const after = useApp.getState().data.learn[k]
     setAgain(k, g < 2)
     if (g >= 2 && qmodeRef.current === 'all') markAhead(k)
-    if (it?.pend && g >= 1) {
-      if (g >= 2) strike()
-      return setPendOpen(true)
-    }
     if (g >= 2) {
       strike()
       if (follow(true)) return
@@ -677,26 +715,27 @@ function WordForge({
       setRevealed(true)
       return grade(2, false, undefined, { sentence: v })
     }
-    card('判定中…')
+    const controller = startRequest('judge')
+    if (!controller) return
+    const judgeMeaning = zh || meaningOf(e, 'zh')
     try {
       const out = await askJSON<{ ok?: boolean; reason?: string }>(
-        `Target: "${e.lemma}" meaning "${zh}"${e.ai?.en ? ` (${e.ai.en})` : ''}. Learner sentence: "${v}". Is the target used correctly AND in this specific sense? Reply ONLY JSON {"ok":true|false,"reason":"中文,<=20字"}`,
+        `Target: "${e.lemma}" meaning "${judgeMeaning}"${e.ai?.en ? ` (${e.ai.en})` : ''}. Learner sentence: "${v}". Is the target used correctly AND in this specific sense? Reply ONLY JSON {"ok":true|false,"reason":"中文,<=20字"}`,
+        { signal: controller.signal },
       )
-      if (useApp.getState().forgeWord !== k || useApp.getState().view !== 'forge') return
+      if (!requestIsCurrent(controller)) return
       if (out.ok === true) grade(2, false, undefined, { verified: true })
       else if (out.ok === false) grade(0, false, out.reason || '义项不符')
       else hint('AI 判定失败，稍后再试')
     } catch (er) {
-      hint(aiErr(er, 'AI 判定失败，稍后再试'))
+      if (requestIsCurrent(controller)) hint(aiErr(er, 'AI 判定失败，稍后再试'))
+    } finally {
+      finishRequest(controller)
     }
   }
 
   const settleUse = (ok: boolean) => {
     useApp.getState().setLearn((l) => confirmUse(l, k, ok, day))
-    if (ok && qmodeRef.current === 'all') markAhead(k)
-    setPendOpen(false)
-    if (ok && dueNow && follow(true)) return
-    later(ok ? okDelay : 0)
   }
 
   let body: ReactNode = null
@@ -890,10 +929,16 @@ function WordForge({
   } else {
     body = (
       <>
-        <textarea className="forge-input" id="f-input" rows={2} placeholder={`用 ${e.lemma} 造句`} value={input} onChange={(ev) => setInput(ev.target.value)} />
+        <textarea className="forge-input" id="f-input" rows={2} placeholder={`用 ${e.lemma} 造句`} value={input} onChange={(ev) => setInput(ev.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || (!event.metaKey && !event.ctrlKey) || event.nativeEvent.isComposing || graded) return
+            event.preventDefault()
+            void evalSentence()
+          }}
+        />
         <div>
-          <button className="btn mint sm" disabled={graded} onClick={() => void evalSentence()}>
-            提交
+          <button className="btn mint sm" disabled={graded || aiBusy === 'judge'} onClick={() => void evalSentence()}>
+            {aiBusy === 'judge' ? '判定中…' : '提交'}
           </button>
         </div>
       </>
@@ -907,7 +952,7 @@ function WordForge({
 
   keyAct.current = (ev: KeyboardEvent) => {
     if (useApp.getState().view !== 'forge' || ev.metaKey || ev.ctrlKey || ev.altKey) return
-    if ((ev.target as Element).matches('input,textarea,select')) return
+    if (ev.defaultPrevented || (ev.target as Element).closest('input, textarea, select, [aria-modal="true"]')) return
     const lk = ev.key.toLowerCase()
     if (lk === 'f' && (graded || revealed)) {
       ev.preventDefault()
@@ -918,7 +963,7 @@ function WordForge({
       handlePhraseKey(ev)
       return
     }
-    if (pendOpen && it?.pend) {
+    if (pending) {
       if (ev.key === '1') {
         ev.preventDefault()
         settleUse(true)
@@ -1007,11 +1052,11 @@ function WordForge({
                 <span>{isAgainDrill ? (step >= 2 && autoTask !== base.task ? '降阶重练' : '当日重练') : !dueNow ? '提前练习' : STAGE_NAMES[r.stage]}</span>
               </div>
               {pId && <div className="small mut">挂靠于 {lemmaOf(d, pId)}</div>}
-              {body}
-              {pendOpen && it?.pend && (
+              {pending ? (
                 <div className="fb-card ok">
+                  <div>{wordDefOf(e, defLang) || '—'}</div>
                   <div style={{ font: '16px/1.8 var(--read)' }}>
-                    <Marked s={it.pend.s} form={e.lemma} />
+                    <Marked s={pending.s} form={e.lemma} />
                   </div>
                   <div className="pr recall-btns">
                     <button className="btn mint sm" onClick={() => settleUse(true)}>
@@ -1022,9 +1067,13 @@ function WordForge({
                     </button>
                   </div>
                 </div>
+              ) : body}
+              {!pending && needFresh && !sent.fresh && hasKey && !graded && !revealed && !input && (
+                <button className="btn alt sm" disabled={!!aiBusy} onClick={() => void generateExample()}>
+                  {aiBusy === 'example' ? '正在生成…' : '用 AI 生成例句'}
+                </button>
               )}
               <div id="f-feedback">
-                {fb?.kind === 'card' && <div className={`fb-card ${fb.cls}`}>{fb.node}</div>}
                 {fb?.kind === 'hint' && (
                   <Reveal
                     actions={

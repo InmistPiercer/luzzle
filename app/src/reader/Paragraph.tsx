@@ -6,7 +6,7 @@ import { paraNodes, type SepSpan, type WordSpan } from './text'
 const Word = ({ n, sel, picked }: { n: WordSpan; sel: boolean; picked: boolean }) => {
   const cls = n.pc || n.stage > 0 ? `${POS_CLS[n.pos] || ''} ${n.pos === 'phrase' ? 'ph' : 'm'} s${n.stage}` : POS_CLS[n.pos] || ''
   return (
-    <span className={`w ${cls}${sel ? ' sel' : ''}${picked ? ' ph-pick' : ''}`} data-w={n.lw} data-wi={n.wi} data-pc={n.pc || undefined}>
+    <span className={`w ${cls}${sel ? ' sel' : ''}${picked ? ' ph-pick' : ''}`} role="button" tabIndex={-1} data-w={n.lw} data-wi={n.wi} data-pc={n.pc || undefined}>
       {n.text}
     </span>
   )

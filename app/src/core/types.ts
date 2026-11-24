@@ -116,6 +116,7 @@ export interface DocData {
   aiChunks?: { pages: number[]; text: string }[]
   parasRule?: Para[]
   parasAI?: Para[]
+  aiDone?: number[]
   aiFailed?: number
   tr?: TrMode
 }

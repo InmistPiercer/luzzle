@@ -10,7 +10,6 @@ export interface DesktopBridge {
   setSecret: (val: string) => Promise<boolean>
   writeAutoBackup: (json: string, day: string) => Promise<boolean>
   openBackupsFolder: () => Promise<boolean>
-  clearAutoBackups: () => Promise<boolean>
   onMenuAction: (cb: (action: string, payload?: unknown) => void) => () => void
 }
 

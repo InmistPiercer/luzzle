@@ -151,8 +151,8 @@ describe('v6.5.0 polysemy and phrase e2e', () => {
     expect(boardRootIds(delKeep)).toContain('keep_faith')
   })
 
-  it('Suite C: preserves reviewed demo words on clearDemo and exports REBUILD_POOL = 3', () => {
-    expect(REBUILD_POOL).toBe(3)
+  it('Suite C: preserves reviewed demo words on clearDemo and exports REBUILD_POOL = 6', () => {
+    expect(REBUILD_POOL).toBe(6)
     const d0 = seedDemo(D0)
     const reviewed = { ...d0, learn: applyReview(d0.learn, 'erode', { kind: 'meaning', task: 'pick', grade: 2, fresh: false, day: D0 }, d0.pieces) }
     const cleared = clearDemo(reviewed, D0)

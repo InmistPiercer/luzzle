@@ -21,6 +21,7 @@ export interface Usage extends Tally {
 
 export interface CallDeps {
   fetch?: typeof fetch
+  signal?: AbortSignal
   today: Day
   usage: () => Usage
   record: (t: Tally) => void
@@ -232,25 +233,34 @@ export function extractPartialJSON(s: string): Record<string, unknown> | null {
   return Object.keys(out).length ? out : null
 }
 
-async function readSSE(res: Response, spec: ProviderSpec, onText: (t: string) => void): Promise<{ text: string; usage: Tokens }> {
+async function readSSE(res: Response, spec: ProviderSpec, onText: (t: string) => void) {
   const reader = res.body!.getReader()
   const dec = new TextDecoder()
   let buf = ''
   let text = ''
+  let completed = false
+  let failed = false
   let usage: Tokens = { in: 0, out: 0 }
   const feed = (line: string) => {
     if (!line.startsWith('data:')) return
     const raw = line.slice(5).trim()
-    if (!raw || raw === '[DONE]') return
+    if (!raw) return
+    let pkt: unknown
     try {
-      const pkt: unknown = JSON.parse(raw)
-      if (spec.streamUsage) usage = spec.streamUsage(pkt, usage)
-      const delta = spec.readDelta ? spec.readDelta(pkt) : ''
-      if (delta) {
-        text += delta
-        onText(text)
-      }
-    } catch {}
+      pkt = raw === '[DONE]' ? raw : JSON.parse(raw)
+    } catch {
+      failed = true
+      return
+    }
+    const status = spec.streamStatus?.(pkt)
+    if (status === 'done') completed = true
+    if (status === 'error') failed = true
+    if (spec.streamUsage) usage = spec.streamUsage(pkt, usage)
+    const delta = spec.readDelta?.(pkt)
+    if (delta) {
+      text += delta
+      onText(text)
+    }
   }
   while (true) {
     const { done, value } = await reader.read()
@@ -265,7 +275,7 @@ async function readSSE(res: Response, spec: ProviderSpec, onText: (t: string) =>
   }
   buf += dec.decode()
   if (buf.trim()) feed(buf.trim())
-  return { text, usage }
+  return { text, usage, valid: completed && !failed }
 }
 
 export const extractJSON = (s: string) => {
@@ -288,7 +298,7 @@ export async function callLong<T>(cfg: AIConfig, system: string, user: string, d
       if (v != null) return v
     } catch (e) {
       const code = (e as AIError).code
-      if (code === 'quota' || code === 'no-key' || code === 'insecure-url') throw e
+      if (code === 'quota' || code === 'no-key' || code === 'insecure-url' || code === 'cancelled') throw e
     }
   }
   return null
@@ -297,6 +307,7 @@ export async function callLong<T>(cfg: AIConfig, system: string, user: string, d
 export async function callAI(cfg: AIConfig, messages: ChatMessage[], deps: CallDeps & { json: true }): Promise<unknown>
 export async function callAI(cfg: AIConfig, messages: ChatMessage[], deps: CallDeps & { json?: false }): Promise<string>
 export async function callAI(cfg: AIConfig, messages: ChatMessage[], deps: CallDeps & { json?: boolean }): Promise<unknown> {
+  if (deps.signal?.aborted) throw new AIError('cancelled')
   if (!cfg.apiKey) throw new AIError('no-key')
   const spec = providerOf(cfg.provider)
   const p = priceOf(cfg, spec.model)
@@ -314,13 +325,15 @@ export async function callAI(cfg: AIConfig, messages: ChatMessage[], deps: CallD
   pending.req++
   pending.cost += reserved
   const ctrl = new AbortController()
+  const signal = deps.signal ? AbortSignal.any([ctrl.signal, deps.signal]) : ctrl.signal
   const timer = setTimeout(() => ctrl.abort(), deps.timeoutMs ?? AI_TIMEOUT_MS)
   const doFetch = deps.fetch || fetch
   try {
-    let res = await doFetch(url, { ...init, signal: ctrl.signal })
+    let res = await doFetch(url, { ...init, signal })
     if (wantStream && res.status === 400) {
       const fallback = spec.build(cfg, messages, { json: deps.jsonMode, maxTokens })
-      res = await doFetch(fallback.url, { ...fallback.init, signal: ctrl.signal })
+      if (signal.aborted) throw new AIError(deps.signal?.aborted ? 'cancelled' : 'timeout')
+      res = await doFetch(fallback.url, { ...fallback.init, signal })
     }
     if (!res.ok) {
       const raw = await res.text().catch(() => '')
@@ -330,25 +343,37 @@ export async function callAI(cfg: AIConfig, messages: ChatMessage[], deps: CallD
     try {
       const ct = res.headers.get('content-type') || ''
       if (wantStream && res.body && ct.includes('text/event-stream')) {
-        const { text, usage } = await readSSE(res, spec, (acc) => {
+        const { text, usage, valid } = await readSSE(res, spec, (acc) => {
           if (!deps.json || !deps.onPartial) return
           const partial = extractPartialJSON(acc)
           if (partial) deps.onPartial(partial)
         })
         const t = usage.in || usage.out ? usage : { in: reservedInput(messages), out: estTokens(text) }
         deps.record({ req: 1, inTok: t.in, outTok: t.out, cost: p ? costOf(p, t) : 0 })
+        if (!valid) throw new AIError('format')
         return deps.json ? extractJSON(text) : text
       }
-      const body: unknown = await res.json()
+      const raw = await res.text()
+      let body: unknown
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        deps.record({ req: 1, inTok: 0, outTok: 0, cost: 0 })
+        throw new AIError('format')
+      }
       const t = spec.usage(body)
       deps.record({ req: 1, inTok: t.in, outTok: t.out, cost: p ? costOf(p, t) : 0 })
       const text = spec.read(body)
       return deps.json ? extractJSON(text) : text
-    } catch {
-      throw new AIError(ctrl.signal.aborted ? 'timeout' : 'format')
+    } catch (error) {
+      if (deps.signal?.aborted) throw new AIError('cancelled')
+      if (ctrl.signal.aborted) throw new AIError('timeout')
+      if (error instanceof TypeError) throw new AIError('network')
+      throw new AIError('format')
     }
   } catch (e) {
     if (e instanceof AIError) throw e
+    if (deps.signal?.aborted) throw new AIError('cancelled')
     const msg = String(e)
     throw new AIError(ctrl.signal.aborted ? 'timeout' : 'network', cfg.apiKey ? msg.split(cfg.apiKey).join('***') : msg)
   } finally {

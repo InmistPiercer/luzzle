@@ -4,7 +4,7 @@ import { seedDemo } from '../content/seed'
 import { addOccurrence, createPiece, entryFromSurface } from '../learn/pieces'
 import { setExamples, tokenFor } from '../lang/examples'
 import { setSenseData } from '../lang/senses'
-import { confOf, freshSentence, localJudge, maskParts, matchesForm, matchesWord, meaningChoices, meaningOf, senseSentence, stableRows, todayDone, wordDefOf } from './logic'
+import { confOf, freshSentence, hasMeaning, localJudge, maskParts, matchesForm, matchesWord, meaningChoices, meaningOf, senseSentence, stableRows, todayDone, wordDefOf } from './logic'
 
 const d = seedDemo('2026-11-14')
 
@@ -25,6 +25,15 @@ describe('forge logic', () => {
   it('masks the sentence form', () => {
     expect(maskParts('It will erode the patience.', 'erode')).toEqual(['It will ', ' the patience.'])
     expect(maskParts('No match here.', 'erode')).toEqual(['No match here. ', ''])
+  })
+
+  it('uses self-recall instead of Chinese choices when an English gloss is unavailable', () => {
+    const lemma = 'fixtureword'
+    const entry = { lemma, tile: '例词', en: 'mixed 例词', mean: ['例词', '词条'] }
+    const state = createPiece(d, lemma, entry, '生词初见', { pid: null, wi: null, doc: '', s: '' })
+    expect(hasMeaning({ ...state, prefs: { ...state.prefs, defLang: 'en' } }, lemma)).toBe(false)
+    expect(meaningChoices(state, lemma, 'en').opts).toEqual([])
+    expect(meaningChoices(state, lemma, 'zh').opts[0]).toBe('例词')
   })
 
   it('accepts inflections for words but not for phrases', () => {

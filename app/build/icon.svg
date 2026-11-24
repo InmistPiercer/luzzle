@@ -4,15 +4,26 @@
       <stop offset="0%" stop-color="#FAF9FF"/>
       <stop offset="100%" stop-color="#EAE4FF"/>
     </linearGradient>
+    <clipPath id="sq">
+      <rect x="100" y="100" width="824" height="824" rx="186"/>
+    </clipPath>
+    <filter id="drop" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#120B29" flood-opacity="0.30"/>
+    </filter>
   </defs>
-  <rect x="64" y="64" width="896" height="896" rx="206" fill="#CFC4F6"/>
-  <rect x="64" y="48" width="896" height="896" rx="206" fill="url(#bg)" stroke="#231942" stroke-width="20"/>
-  <g transform="translate(172, 268) scale(3.4)">
+  <g filter="url(#drop)">
+    <g clip-path="url(#sq)">
+      <rect x="100" y="100" width="824" height="824" fill="#CFC4F6"/>
+      <rect x="100" y="100" width="824" height="802" rx="176" fill="url(#bg)"/>
+    </g>
+    <rect x="100" y="100" width="824" height="824" rx="186" fill="none" stroke="#231942" stroke-width="20"/>
+  </g>
+  <g transform="translate(197, 330) scale(3.15)">
     <path fill="#4A31C9" transform="translate(0,11)" d="M0 0 L100 0 L100 48.1 A16.9 16.9 0 1 1 100 81.9 L100 130 L0 130 Z"/>
+    <path fill="#D99B00" transform="translate(0,11)" d="M100 0 L200 0 L200 130 L100 130 L100 81.9 A16.9 16.9 0 1 0 100 48.1 Z"/>
     <path fill="#6B4EF6" stroke="#231942" stroke-width="5" stroke-linejoin="round" d="M0 0 L100 0 L100 48.1 A16.9 16.9 0 1 1 100 81.9 L100 130 L0 130 Z"/>
     <path stroke="#A794FF" stroke-width="5" stroke-linecap="round" d="M14 12 L86 12"/>
     <text x="50" y="96" text-anchor="middle" font-family="Georgia, serif" font-weight="800" font-size="108" fill="#FFFFFF">z</text>
-    <path fill="#D99B00" transform="translate(0,11)" d="M100 0 L200 0 L200 130 L100 130 L100 81.9 A16.9 16.9 0 1 0 100 48.1 Z"/>
     <path fill="#FFC83D" stroke="#231942" stroke-width="5" stroke-linejoin="round" d="M100 0 L200 0 L200 130 L100 130 L100 81.9 A16.9 16.9 0 1 0 100 48.1 Z"/>
     <path stroke="#FFE89E" stroke-width="5" stroke-linecap="round" d="M114 12 L186 12"/>
     <text x="156" y="96" text-anchor="middle" font-family="Georgia, serif" font-weight="800" font-size="108" fill="#4A3200">z</text>

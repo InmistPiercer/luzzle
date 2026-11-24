@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { aiErr } from '../ai/ask'
+import { useApp } from '../app/store'
 import { callLong, type CallDeps } from '../ai/client'
 import type { AIConfig } from '../ai/types'
 import type { Para } from '../core/types'
@@ -19,6 +20,20 @@ interface TrState {
 export const useTr = create<TrState>((set) => ({ map: {}, running: null, set: (p) => set(p) }))
 
 const tr = () => useTr.getState()
+let nextJob = 0
+let activeJob: AbortController | null = null
+
+export function stopTranslation() {
+  activeJob?.abort()
+  activeJob = null
+  tr().set({ running: null })
+}
+
+useApp.subscribe((state, previous) => {
+  if (state.dataEpoch === previous.dataEpoch) return
+  stopTranslation()
+  tr().set({ map: {} })
+})
 
 export const srcOf = (p: Para) => stripCites(p.t || '').trim()
 
@@ -40,7 +55,9 @@ const translatable = (it: Item) => it.kind === 'p' && it.p.kind !== 'code' && /[
 export async function loadTr(paras: Para[]) {
   const keys = [...new Set(paras.map(srcOf).filter(Boolean).map(trKey))].filter((k) => !(k in tr().map))
   if (!keys.length) return
+  const epoch = useApp.getState().dataEpoch
   const rows = await db.cache.bulkGet(keys).catch(() => [])
+  if (useApp.getState().dataEpoch !== epoch) return
   const add: Record<string, string> = {}
   rows.forEach((r) => {
     if (r && typeof r.value === 'string') add[r.key] = r.value
@@ -109,11 +126,12 @@ export async function translateChunks(chunks: string[][], deps: TrDeps, onChunk:
   await pool(chunks, Math.min(TR_POOL, Math.max(1, deps.concurrency ?? TR_POOL)), async (texts) => {
     if (stopped()) return
     const got = await callLong(deps.ai, TR_PROMPT, JSON.stringify(texts), deps.call, (res) => {
-      const raw = Array.isArray(res.t) ? res.t.map((x) => String(x).trim()) : []
+      const raw = Array.isArray(res.t) ? res.t.map((x) => typeof x === 'string' ? x.trim() : '') : []
       if (raw.length === texts.length && raw.every(Boolean)) return Object.fromEntries(texts.map((x, i) => [trKey(x), raw[i]]))
       if (texts.length === 1 && raw.length > 1 && raw.every(Boolean)) return { [trKey(texts[0])]: raw.join('') }
       return null
     })
+    if (stopped()) return
     if (!got) failed++
     onChunk(got)
   })
@@ -122,17 +140,20 @@ export async function translateChunks(chunks: string[][], deps: TrDeps, onChunk:
 
 export async function translateDoc(docId: string, chunks: string[][], deps: TrDeps, say: (m: string) => void) {
   if (tr().running || !chunks.length) return
-  const id = Date.now()
+  const id = ++nextJob
+  const controller = new AbortController()
+  activeJob = controller
   const mine = () => tr().running?.id === id
   tr().set({ running: { id, docId, done: 0, total: chunks.length } })
   try {
     const failed = await translateChunks(
       chunks,
-      deps,
+      { ...deps, call: { ...deps.call, signal: controller.signal } },
       (got) => {
         const r = mine() ? tr().running : null
+        if (!r) return
         if (got) void db.cache.bulkPut(Object.entries(got).map(([key, value]) => ({ key, value, at: Date.now() }))).catch(() => undefined)
-        tr().set({ map: got ? { ...tr().map, ...got } : tr().map, ...(r ? { running: { ...r, done: r.done + 1 } } : {}) })
+        tr().set({ map: got ? { ...tr().map, ...got } : tr().map, running: { ...r, done: r.done + 1 } })
       },
       () => !mine(),
     )
@@ -140,5 +161,5 @@ export async function translateDoc(docId: string, chunks: string[][], deps: TrDe
   } catch (e) {
     if (mine()) say(aiErr(e, '翻译失败'))
   }
-  if (mine()) tr().set({ running: null })
+  if (mine()) stopTranslation()
 }

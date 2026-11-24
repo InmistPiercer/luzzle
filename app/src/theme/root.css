@@ -31,6 +31,10 @@
   font: 600 13px/1.6 var(--ui);
   color: var(--mut);
   margin: 6px 0 18px;
+  text-align: left;
+  text-indent: 0;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .col .p-equation {
@@ -44,6 +48,7 @@
 .col .p-abstract {
   font-style: italic;
   color: var(--mut);
+  text-indent: 0;
 }
 
 .col details.backmatter {
@@ -109,9 +114,10 @@
 }
 
 .col p.p-list {
-  margin-top: -10px;
+  margin-top: -.45em;
   padding-left: 1.1em;
   position: relative;
+  text-indent: 0;
 }
 .col p.p-list::before {
   content: '•';

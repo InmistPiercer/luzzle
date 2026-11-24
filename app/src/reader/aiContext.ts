@@ -10,6 +10,61 @@ export interface MeetAI extends EntryAI {
 export const ctxKey = (lm: string, s: string) => `ctx2|${lm}|${s}`
 export const meetKey = (cands: string[], s: string) => `meet|${cands.join(',')}|${s}`
 
+const textFields = ['zh', 'en', 'tr', 'st', 'ex', 'pos', 'reason'] as const
+const listFields = ['fam', 'senses'] as const
+const parseIndex = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value
+  if (typeof value === 'string' && /^\s*\d+\s*$/.test(value)) return Number(value.trim())
+  return undefined
+}
+const validList = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string')
+
+export function contextPreview(fields: Record<string, unknown>): MeetAI {
+  const preview: MeetAI = {}
+  for (const key of textFields) {
+    const value = fields[key]
+    if (typeof value === 'string') preview[key] = value
+  }
+  for (const key of listFields) {
+    const value = fields[key]
+    if (validList(value)) preview[key] = value
+  }
+  if (typeof fields.meta === 'boolean') preview.meta = fields.meta
+  const match = parseIndex(fields.match)
+  if (match !== undefined) preview.match = match
+  const sense = parseIndex(fields.sense)
+  if (sense !== undefined) preview.sense = sense
+  return preview
+}
+
+export function normalizeContextAnswer(value: unknown, kind: 'sense' | 'match'): MeetAI | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const fields = value as Record<string, unknown>
+  if (fields.meta != null && typeof fields.meta !== 'boolean') return null
+  const meta = fields.meta === true
+  const rawIdx = fields[kind]
+  const idx = parseIndex(rawIdx)
+  const resolvedIdx = idx ?? (rawIdx === null || (rawIdx === undefined && meta) ? 0 : undefined)
+  if (resolvedIdx === undefined) return null
+  const out: MeetAI = { [kind]: resolvedIdx }
+  if (typeof fields.meta === 'boolean') out.meta = fields.meta
+  for (const key of textFields) {
+    const field = fields[key]
+    if (field == null) continue
+    if (typeof field !== 'string') return null
+    out[key] = field
+  }
+  for (const key of listFields) {
+    const list = fields[key]
+    if (list == null) continue
+    if (!validList(list)) return null
+    out[key] = list
+  }
+  return (['zh', 'en', 'tr'] as const).some((key) => !!out[key]?.trim()) ? out : null
+}
+
+export const validContextAnswer = (value: unknown, kind: 'sense' | 'match'): value is MeetAI => normalizeContextAnswer(value, kind) !== null
+
 export const sentencePart = (a: EntryAI | MeetAI | null | undefined, withSense = false): SentenceAI | undefined =>
   a && (a.tr || a.st || a.ex || a.zh) ? { tr: a.tr || '', st: a.st || '', ex: a.ex || '', zh: a.zh || '', ...(withSense && Number(a.sense) > 0 ? { sense: Number(a.sense) } : {}) } : undefined
 

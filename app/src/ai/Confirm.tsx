@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { useApp } from '../app/store'
 import { aiDeps } from './ask'
 import { accountedUsage, LONG_MAX_TOKENS } from './client'
-import { costOf, estTokens, money, priceOf, toUSD } from './pricing'
+import { costOf, deepseekPeak, estTokens, money, priceOf, toUSD } from './pricing'
 import { providerOf } from './providers'
 
 export interface Plan {
@@ -45,23 +45,25 @@ export const planOf = (texts: string[], prompt: string, outRatio: number, pageCo
   }
 }
 
-export function fitCalls(plan: Plan): { cost: number | null; fit: number } {
+export function fitCalls(plan: Plan): { cost: number | null; fit: number; peakTag: string } {
   const { ai } = useApp.getState()
   const p = priceOf(ai, providerOf(ai.provider).model)
   const t = accountedUsage(aiDeps())
-  const cost = p ? costOf(p, { in: plan.inTok, out: plan.outTok }) : null
+  const now = new Date()
+  const cost = p ? costOf(p, { in: plan.inTok, out: plan.outTok }, now) : null
+  const peakTag = p?.peak === 'deepseek' ? (deepseekPeak(now) ? ' · 峰时' : ' · 谷时 5 折') : ''
   if (p) {
-    if (!ai.budget) return { cost, fit: plan.calls }
+    if (!ai.budget) return { cost, fit: plan.calls, peakTag }
     let left = Math.max(0, toUSD(ai.budget, ai.cur) - t.cost)
     let fit = 0
     for (const part of plan.parts) {
-      left -= costOf(p, { in: part.inTok, out: part.outTok })
+      left -= costOf(p, { in: part.inTok, out: part.outTok }, now)
       if (left < 0) break
       fit++
     }
-    return { cost, fit }
+    return { cost, fit, peakTag }
   }
-  return { cost, fit: ai.dailyLimit > 0 ? Math.min(plan.calls, Math.max(0, ai.dailyLimit - t.req)) : plan.calls }
+  return { cost, fit: ai.dailyLimit > 0 ? Math.min(plan.calls, Math.max(0, ai.dailyLimit - t.req)) : plan.calls, peakTag }
 }
 
 function ConfirmBody({ a, cur, close }: { a: Ask; cur: 'CNY' | 'USD'; close: () => void }) {
@@ -70,7 +72,7 @@ function ConfirmBody({ a, cur, close }: { a: Ask; cur: 'CNY' | 'USD'; close: () 
   const curScope = scopes?.length ? scopes[Math.min(si, scopes.length - 1)] : null
   const plan = curScope ? curScope.plan : a
   const onOk = curScope ? curScope.onOk : a.onOk
-  const { cost, fit } = fitCalls(plan)
+  const { cost, fit, peakTag } = fitCalls(plan)
   const pages = plan.parts.slice(0, fit).reduce((sum, part) => sum + part.pages, 0)
   return (
     <div className="modal-bg open" onClick={(e) => e.target === e.currentTarget && close()}>
@@ -94,9 +96,10 @@ function ConfirmBody({ a, cur, close }: { a: Ask; cur: 'CNY' | 'USD'; close: () 
           </div>
         )}
         <div>
-          预计 {plan.calls} 次请求{cost != null ? ` · 预计费用 ${money(cost, cur)}` : ''}
+          预计 {plan.calls} 次请求{cost != null ? ` · 预计费用 ${money(cost, cur)}${peakTag}` : ''}
         </div>
         {fit < plan.calls && <div className="warn-line">按今日剩余额度，本次最多处理前 {pages} 页。</div>}
+        <div className="small mut">已发出的请求仍可能计费。</div>
         <div className="pr" style={{ justifyContent: 'flex-end', marginTop: 0 }}>
           <button className="btn alt sm" onClick={close}>
             取消

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { aiErr, askJSON } from '../ai/ask'
-import type { ChatMessage } from '../ai/types'
+import { AIError, type ChatMessage } from '../ai/types'
 import { useApp } from '../app/store'
 import { DEMO_ENTRIES, SENSE_BANK } from '../content/demo'
 import { allDocs, paraIdsOf, setDocFlags } from '../content/docs'
@@ -26,7 +26,7 @@ import {
   withGloss,
 } from '../learn/pieces'
 import { phraseSpans, sentencesByWord, spansFor, stripCites, tokenize, wordOwner } from './text'
-import { attachAI, ctxKey, hasAISense, isMetaAI, meetKey, occurrenceAI, type MeetAI } from './aiContext'
+import { attachAI, contextPreview, ctxKey, hasAISense, isMetaAI, meetKey, normalizeContextAnswer, occurrenceAI, type MeetAI } from './aiContext'
 import { db } from '../storage/db'
 import { dictHas, dictPeek, ensureDict, firstSense } from '../lang/lexdict'
 import { ensurePhrases, ensureSenses, loadedPhrases, matchSense, senseLine, sensesOfWord, withSense } from '../lang/senses'
@@ -671,13 +671,26 @@ const meetPrompt = (w: string, senses: string[], s: string): ChatMessage[] => [
 ]
 
 const inflight = new Map<string, Promise<MeetAI | null>>()
+let contextRequests = new AbortController()
+
+useApp.subscribe((state, previous) => {
+  if (state.dataEpoch === previous.dataEpoch) return
+  contextRequests.abort()
+  contextRequests = new AbortController()
+  inflight.clear()
+  rs().set({ ai: {}, aiStream: {}, recalled: [], jump: null, po: false, ctx: false, sel: null, ann: null })
+})
+
+const answerKind = (key: string) => key.startsWith('meet|') ? 'match' : 'sense'
 
 async function aiCached(key: string) {
   if (key in rs().ai && rs().ai[key] !== null) return rs().ai[key]
+  const signal = contextRequests.signal
   const row = await db.cache.get(key).catch(() => undefined)
-  if (row) {
-    rs().set({ ai: { ...rs().ai, [key]: row.value as EntryAI } })
-    return row.value as EntryAI
+  const parsed = normalizeContextAnswer(row?.value, answerKind(key))
+  if (!signal.aborted && parsed) {
+    rs().set({ ai: { ...rs().ai, [key]: parsed } })
+    return parsed
   }
   return undefined
 }
@@ -704,16 +717,22 @@ async function askAI(key: string, prompt: ChatMessage[], baseFam?: string[]) {
     rs().set({ ai: next })
   }
   rs().set({ aiStream: { ...rs().aiStream, [key]: {} } })
-  const job = askJSON<MeetAI>(prompt, {
+  const signal = contextRequests.signal
+  const job = askJSON<unknown>(prompt, {
     jsonMode: true,
     maxTokens: 380,
     estOut: 180,
+    signal,
     onPartial: (p) => {
-      rs().set({ aiStream: { ...rs().aiStream, [key]: { ...(baseFam?.length ? { fam: baseFam } : {}), ...(p as Partial<MeetAI>) } } })
+      if (signal.aborted) return
+      rs().set({ aiStream: { ...rs().aiStream, [key]: { ...(baseFam?.length ? { fam: baseFam } : {}), ...contextPreview(p) } } })
     },
   })
     .then((raw) => {
-      const out: MeetAI = baseFam?.length && !raw.fam?.length ? { ...raw, fam: baseFam } : raw
+      if (signal.aborted) return null
+      const parsed = normalizeContextAnswer(raw, answerKind(key))
+      if (!parsed) throw new AIError('format')
+      const out: MeetAI = baseFam?.length && !parsed.fam?.length ? { ...parsed, fam: baseFam } : parsed
       const nextStream = { ...rs().aiStream }
       delete nextStream[key]
       rs().set({ ai: { ...rs().ai, [key]: out }, aiStream: nextStream })
@@ -721,13 +740,14 @@ async function askAI(key: string, prompt: ChatMessage[], baseFam?: string[]) {
       return out
     })
     .catch((e) => {
+      if (signal.aborted) return null
       clearStream(key)
       rs().set({ ai: { ...rs().ai, [key]: null } })
       say(aiFailReason(e))
       return null
     })
     .finally(() => {
-      inflight.delete(key)
+      if (inflight.get(key) === job) inflight.delete(key)
     })
   inflight.set(key, job)
   return job
@@ -736,18 +756,19 @@ async function askAI(key: string, prompt: ChatMessage[], baseFam?: string[]) {
 export async function triggerAI() {
   const sel = rs().sel
   if (!sel) return
+  const signal = contextRequests.signal
   rs().set({ po: false, ctx: true })
   const d = app().data
   const ps = promptSentence(sel.s, sel.w, selOccIdx(d, sel))
   const localFam = lexOf(sel.w)?.[4] || lexOf(sel.lm)?.[4] || []
   if (sel.mode === 'new') {
     const key = selCtxKey(d, sel)
-    if ((await aiCached(key)) === undefined) await askAI(key, ctxPrompt(sel.w, sel.lm, ps, dictSenseOf(sel.lm).lines, localFam.length > 0), localFam)
+    if ((await aiCached(key)) === undefined && !signal.aborted) await askAI(key, ctxPrompt(sel.w, sel.lm, ps, dictSenseOf(sel.lm).lines, localFam.length > 0), localFam)
     return
   }
   if (sel.mode === 'meet') {
     const key = selMeetKey(d, sel)
-    if ((await aiCached(key)) !== undefined) return
+    if ((await aiCached(key)) !== undefined || signal.aborted) return
     const senses = sel.cands.map((id) => {
       const p = d.pieces[id]
       return `${p?.ai?.zh || p?.tile || p?.lemma}${p?.ai?.en ? ` (${p.ai.en})` : ''}`
@@ -760,8 +781,10 @@ export async function triggerAI() {
   const key = selCtxKey(d, sel)
   const p0 = d.pieces[id]
   const fam = p0?.ai?.fam?.length ? p0.ai.fam : localFam
-  const out = (await aiCached(key)) ?? (await askAI(key, ctxPrompt(sel.w, sel.lm, ps, p0?.dict || p0?.senses || [], fam.length > 0), fam))
-  if (out) app().update((x) => attachAI(x, id, sel.pid, out, true, sel.wi))
+  const cached = await aiCached(key)
+  if (signal.aborted) return
+  const out = cached ?? (await askAI(key, ctxPrompt(sel.w, sel.lm, ps, p0?.dict || p0?.senses || [], fam.length > 0), fam))
+  if (out && !signal.aborted) app().update((x) => attachAI(x, id, sel.pid, out, true, sel.wi))
 }
 
 export const aiFailReason = (e: unknown) => aiErr(e, '离线释义 · AI 暂不可用')

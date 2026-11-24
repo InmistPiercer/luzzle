@@ -25,7 +25,7 @@ export function DemoAsk() {
           演示文章 {sum.docs} 篇 · 演示拼块 {sum.pieces} 块
         </div>
         <div className="pr" style={{ justifyContent: 'flex-end', marginTop: 0 }}>
-          <button className="btn alt sm" onClick={() => close(false)}>
+          <button className="btn alt sm" data-dialog-cancel onClick={() => close(false)}>
             保留
           </button>
           <button className="btn sm danger-btn" onClick={() => close(true)}>

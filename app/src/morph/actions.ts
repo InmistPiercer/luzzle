@@ -107,15 +107,7 @@ export async function addToVocab(w: string, info?: { z?: string; p?: string }) {
   const e = engine()
   const dec = e.decomposition(w)
   const c = e.ms.words[w]?.ctx.find((x) => x.s && tokenFor(x.s, w))
-  let s = morphVocabSentence(app().data, w, c?.s, dec?.x)
-  if (!s && app().ai.apiKey) {
-    try {
-      const r = await askJSON(`Write one natural English sentence (10-20 words) using the word "${w}". Reply ONLY JSON {"s":"..."}`)
-      if (typeof r.s === 'string' && tokenFor(r.s, w)) s = r.s
-    } catch {
-      s = ''
-    }
-  }
+  const s = morphVocabSentence(app().data, w, c?.s, dec?.x)
   const d = app().data
   if (vocabPieces(w).length) return
   const id = newPieceId(d, w)

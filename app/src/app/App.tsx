@@ -4,7 +4,7 @@ import { today } from '../core/date'
 import { desktop, type DesktopFile } from '../core/desktop'
 import { ForgeView } from '../forge/ForgeView'
 import { MorphView } from '../morph/MorphView'
-import { importReaderFile } from '../reader/docActions'
+import { importReaderFiles } from '../reader/docActions'
 import { FlyLayer } from '../reader/FlyLayer'
 import { ReaderView } from '../reader/ReaderView'
 import { exportBackup } from '../storage/persist'
@@ -17,6 +17,7 @@ import { useApp, useDueCount } from './store'
 import { SVG_DEFS } from './svgDefs'
 import { Toast } from './Toast'
 import { useSenseSync } from '../learn/senseSync'
+import { useModalKeyboard } from './modalKeyboard'
 
 export function App() {
   const ready = useApp((x) => x.ready)
@@ -25,11 +26,51 @@ export function App() {
   const prefs = useApp((x) => x.data.prefs)
   const settings = useApp((x) => x.settingsOpen)
   const setSettings = (v: boolean) => useApp.setState({ settingsOpen: v })
+  useModalKeyboard()
+
+  useEffect(() => {
+    const shortcuts = { F1: 'read', F2: 'board', F3: 'build', F4: 'forge' } as const
+    const onKey = (event: KeyboardEvent) => {
+      const state = useApp.getState()
+      if (!state.ready || state.data.prefs.style !== 'amber' || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+      if (document.querySelector('[aria-modal="true"]')) return
+      const next = shortcuts[event.key as keyof typeof shortcuts]
+      if (next) {
+        event.preventDefault()
+        state.go(next)
+      } else if (event.key === 'F9') {
+        event.preventDefault()
+        useApp.setState({ settingsOpen: true })
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     document.title = IS_TEST ? 'Luzzle · 测试版' : 'Luzzle'
     void hydrate()
   }, [hydrate])
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const refreshDay = () => {
+      clearTimeout(timer)
+      const state = useApp.getState()
+      const day = today()
+      if (state.ready && state.againDay !== day) {
+        useApp.setState({ againDay: day, again: new Set(), againStep: {}, forgeWord: null })
+      }
+      const now = new Date()
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+      timer = setTimeout(refreshDay, midnight.getTime() - now.getTime())
+    }
+    refreshDay()
+    document.addEventListener('visibilitychange', refreshDay)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', refreshDay)
+    }
+  }, [])
   useEffect(() => {
     if (!desktop) return
     return desktop.onMenuAction((action, payload) => {
@@ -47,9 +88,9 @@ export function App() {
         setTimeout(() => URL.revokeObjectURL(url), 1000)
         s.say('已导出')
       } else if (action === 'open-files' && Array.isArray(payload)) {
-        for (const it of payload as DesktopFile[]) {
-          if (it?.name && it.bytes) importReaderFile(new File([new Uint8Array(it.bytes)], it.name))
-        }
+        importReaderFiles((payload as DesktopFile[]).flatMap((it) =>
+          it?.name && it.bytes ? [new File([new Uint8Array(it.bytes)], it.name)] : [],
+        ))
       }
     })
   }, [])

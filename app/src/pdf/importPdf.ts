@@ -40,13 +40,21 @@ const countWords = (p: ParsedPdf, u: { from: Pos; to: Pos }) =>
 const SECTION = /^(\d+(\.\d+)*\.?\s|[IVX]+\.\s|appendix|abstract|introduction|background|related work|literature|method|results?\b|discussion|conclusions?|references|bibliography|acknowledg|data availability|supplementary)/i
 const looksLikeSections = (titles: string[]) => titles.length > 0 && titles.filter((t) => SECTION.test(t.trim())).length >= titles.length * 0.5
 
+export function isScannedPages(pages: Pick<PdfPage, 'items'>[]) {
+  if (!pages.length) return true
+  const emptyPages = pages.filter((p) => !p.items.some((item) => /[\p{L}\p{N}]/u.test(item.s))).length
+  if (emptyPages >= pages.length * 0.8) return true
+  if (pages.length < 3) return false
+  const sparsePages = pages.filter((p) => p.items.reduce((n, t) => n + t.s.trim().length, 0) < 40).length
+  return sparsePages >= pages.length * 0.8
+}
+
 export async function parsePdf(buf: ArrayBuffer, name: string): Promise<ParsedPdf> {
   await loadDictWords()
   const { pages, outline, title } = await readPdf(buf)
   const body = bodySize(pages)
   const lines = pages.map((p) => pageLines(p, body))
-  const chars = pages.map((p) => p.items.reduce((n, t) => n + t.s.length, 0))
-  const scanned = pages.length > 0 && chars.filter((c) => c < 40).length >= pages.length * 0.8
+  const scanned = isScannedPages(pages)
   const parsed: ParsedPdf = { name, title: title || name.replace(/\.pdf$/i, ''), pages, body, lines, units: [], scanned }
   let units: PdfUnit[] = []
   if (outline.length >= 3 && !(pages.length <= 60 && looksLikeSections(outline.map((o) => o.title)))) {
@@ -83,6 +91,13 @@ export function buildDoc(p: ParsedPdf, u: PdfUnit, vault: number, id: string): D
   )
   let n = 0
   const paras: Para[] = rules.map((r) => (r.h ? { h: r.h, pg: r.pg } : { id: `${id}-P${++n}`, pg: r.pg, raw: '', t: r.t }))
+  if (!paras.some((para) => para.t)) {
+    paras.length = 0
+    for (const { pi, lines } of sl) {
+      const text = lines.map((line) => clean(line.text)).filter(Boolean).join(' ')
+      if (/[\p{L}\p{N}]/u.test(text)) paras.push({ id: `${id}-P${++n}`, pg: p.pages[pi].n, raw: '', t: text })
+    }
+  }
   const aiChunks: { pages: number[]; text: string }[] = []
   let cur: typeof sl = []
   let size = 0

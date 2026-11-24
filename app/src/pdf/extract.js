@@ -13,11 +13,11 @@ Rules:
   backmatter = CRediT statements, competing interests, acknowledgements, funding, data availability, references.
 - Wrap author-year citations in ⟦ ⟧, e.g. ⟦(Li et al., 2021)⟧.
 - For equations, give a readable linear form using Unicode (Σ, subscripts, superscripts) and keep the equation number.
-- Set "cont": true on the first block if it continues the previous paragraph; its text should contain only this chunk's part.
+- Set "cont": true ONLY on a block that continues the previous paragraph (omit "cont" otherwise); its text should contain only this chunk's part.
 - "¶ " at the start of a line marks a paragraph start in the source (indent or blank line). Keep these paragraph breaks; do not merge paragraphs, and do not output the ¶ sign.
 - A paragraph that ends without terminal punctuation continues in a later text block, even after page markers, captions, charts or advertisements in between: join the pieces into one block.
-- For skip blocks, the text can be a short label.
-Reply ONLY JSON: {"blocks":[{"type":"para","text":"...","cont":false}]}`
+- For skip blocks, set "text": "".
+Reply ONLY JSON: {"blocks":[{"type":"para","text":"..."}]}`
 
 export const words = (s) =>
   s
@@ -91,9 +91,28 @@ export async function readPdf(data) {
     const pg = await doc.getPage(n)
     const vp = pg.getViewport({ scale: 1 })
     const tc = await pg.getTextContent()
-    const items = tc.items
-      .filter((t) => t.str && t.str.trim())
-      .map((t) => ({ s: t.str, x: t.transform[4], y: t.transform[5], w: t.width, fs: Math.hypot(t.transform[2], t.transform[3]) }))
+    const items = []
+    let sp = null
+    for (const t of tc.items) {
+      if (!t.str) {
+        if (t.hasEOL) sp = null
+        continue
+      }
+      const x = t.transform[4]
+      const y = t.transform[5]
+      const fs = Math.hypot(t.transform[2], t.transform[3])
+      if (!t.str.trim()) {
+        sp = { x, y, w: t.width, fs }
+        continue
+      }
+      const hasSp =
+        !!sp &&
+        Math.abs(y - sp.y) < Math.max(fs, sp.fs, 6) * 0.5 &&
+        x >= sp.x - 1 &&
+        x - (sp.x + sp.w) < Math.max(fs, sp.fs, 6) * 1.5
+      items.push({ s: t.str, x, y, w: t.width, fs, ...(hasSp ? { sp: true } : {}) })
+      sp = null
+    }
     pages.push({ n, w: vp.width, h: vp.height, items })
   }
   const outline = await readOutline(doc)
@@ -156,7 +175,7 @@ export function pageLines(p, body) {
         text += t.s.trim()
         continue
       }
-      if (prev && t.x - (prev.x + prev.w) > 0.18 * Math.max(t.fs, prev.fs) && !/\s$/.test(text)) text += ' '
+      if (prev && (t.sp || t.x - (prev.x + prev.w) > 0.14 * Math.max(t.fs, prev.fs)) && !/\s$/.test(text) && !/^\s/.test(t.s)) text += ' '
       const sub = prev && t.fs < body * 0.8 && t.y < prev.y - 0.5 && /^\d+$/.test(t.s.trim())
       text += sub ? t.s.trim().replace(/\d/g, (d) => '₀₁₂₃₄₅₆₇₈₉'[d]) : t.s
       prev = t
@@ -165,8 +184,9 @@ export function pageLines(p, body) {
   })
   const cut = (set, depth) => {
     if (set.length <= 1 || depth > 14) return [set]
-    const gap = (axis) => {
-      const iv = set.map((l) => (axis === 'x' ? [l.x0, l.x1] : [l.y0, l.y1])).sort((a, b) => a[0] - b[0])
+    const gap = (axis, s = set) => {
+      if (s.length <= 1) return null
+      const iv = s.map((l) => (axis === 'x' ? [l.x0, l.x1] : [l.y0, l.y1])).sort((a, b) => a[0] - b[0])
       let best = null
       let end = iv[0][1]
       for (let i = 1; i < iv.length; i++) {
@@ -180,7 +200,46 @@ export function pageLines(p, body) {
     const gx = gap('x')
     const okX = gx && gx.g > body * 0.9
     const okY = gy && gy.g > body * 0.5
-    if (okY && (!okX || gy.g * 1.6 > gx.g)) return [...cut(set.filter((l) => l.y0 > gy.at), depth + 1), ...cut(set.filter((l) => l.y0 <= gy.at), depth + 1)]
+    if (okY) {
+      let cutY = gy
+      if (!okX) {
+        const iv = set.map((l) => [l.y0, l.y1]).sort((a, b) => a[0] - b[0])
+        const cands = []
+        let end = iv[0][1]
+        for (let i = 1; i < iv.length; i++) {
+          const g = iv[i][0] - end
+          if (g > body * 0.5) cands.push({ g, at: (end + iv[i][0]) / 2 })
+          end = Math.max(end, iv[i][1])
+        }
+        const peel = cands
+          .sort((a, b) => b.at - a.at)
+          .find((c) => {
+            const t = set.filter((l) => l.y0 > c.at)
+            const b = set.filter((l) => l.y0 <= c.at)
+            const bx = gap('x', b)
+            return t.length > 0 && t.length <= 6 && t.some((l) => l.fs >= body * 1.5) && bx && bx.g > body * 0.9
+          })
+        if (peel) cutY = peel
+      }
+      const top = set.filter((l) => l.y0 > cutY.at)
+      const bot = set.filter((l) => l.y0 <= cutY.at)
+      const spansX = (s) => okX && s.some((l) => l.x1 <= gx.at) && s.some((l) => l.x0 >= gx.at)
+      const botTopY = bot.length ? Math.max(...bot.map((l) => l.y0)) : 0
+      const minX = (s) => Math.min(...s.map((l) => l.x0))
+      const bigBand = spansX(top) && spansX(bot) && cutY.g > body * 3.5 && Math.abs(minX(top) - minX(bot)) < body * 5
+      const topBig = top.filter((l) => l.fs >= body * 1.5)
+      const topBanner =
+        spansX(bot) &&
+        top.length <= 6 &&
+        topBig.length > 0 &&
+        !top.some((l) => l.y0 < Math.min(...topBig.map((x) => x.y0)) - body * 1.5 && l.fs < body * 1.2)
+      const headBreak =
+        okX &&
+        cutY.g > body * 1.8 &&
+        (topBanner || (spansX(top) && bot.some((l) => l.y0 >= botTopY - body * 3 && l.fs >= body * 1.5)))
+      const realHorizBreak = bigBand || headBreak
+      if (top.length && bot.length && (!okX || realHorizBreak)) return [...cut(top, depth + 1), ...cut(bot, depth + 1)]
+    }
     if (okX) {
       const L = set.filter((l) => l.x1 <= gx.at)
       const R = set.filter((l) => l.x0 >= gx.at)
@@ -259,8 +318,10 @@ export const joinHyphen = (prev, next) => {
   const a = (prev.match(/([A-Za-z]+)[\u00AD-]$/) || [])[1] || ''
   const b = (next.match(/^([A-Za-z]+)/) || [])[1] || ''
   const hasDict = !!(dictWords && dictWords.size > 0)
-  const chained = /[A-Za-z]+-[A-Za-z]+-$/.test(prev) && (!hasDict || (inDict(a) && inDict(b)))
-  const keep = prev.endsWith('-') && (chained || (a.length > 1 && b.length > 1 && inDict(a) && inDict(b) && !inDict(a + b)))
+  const numPrefix = /\d-$/.test(prev)
+  const hyphenWord = a.length > 1 && b.length > 1 && inDict(`${a}-${b}`)
+  const chained = /[A-Za-z]+-[A-Za-z]+-$/.test(prev) && (!hasDict || (inDict(a) && inDict(b) && !inDict(a + b)))
+  const keep = prev.endsWith('-') && (numPrefix || hyphenWord || chained || (a.length > 1 && b.length > 1 && inDict(a) && inDict(b) && !inDict(a + b)))
   return keep ? prev + next : prev.replace(/[\u00AD-]$/, '') + next
 }
 
@@ -276,12 +337,23 @@ export const clean = (t) =>
 
 const MATH = /[=⋅∑Σ∫∂√≤≥≈∈×÷∥‖ʹ′]/
 const SHORT = new Set(['a', 'an', 'as', 'at', 'be', 'by', 'do', 'go', 'he', 'i', 'if', 'in', 'is', 'it', 'me', 'my', 'no', 'of', 'on', 'or', 'so', 'to', 'up', 'us', 'we'])
+const PROSE_2 = new Set(['mr', 'ms', 'dr', 'st', 'jr', 'sr', 'uk', 'us', 'eu', 'un', 'ai', 'de', 'la', 'el', 'al', 'le', 'du', 'pm', 'mp', 'tv', 'id', 'ok', 'vs', 'ex', 'ad', 're'])
 const PROSE_NUM = /^(?:\d+(?:[.,]\d+)?(?:st|nd|rd|th|s|k|m|bn|trn|p|g|kg|mg|km|cm|mm|ml|gb|mb|tb|hz|ghz|mw|gw|kw|pt|px|am|pm)|[123]d)$/i
+const NUM_TOK = /^\(?[$£€¥]?\d[\d.,]*%?\)?[.,;:!?]?$/
 const realWord = (w) => {
   const x = w.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '').toLowerCase()
-  if (!/^[a-z]+(-[a-z]+)*$/.test(x)) return false
-  if (x.length <= 2) return SHORT.has(x) && x !== 'i'
-  return x.split('-').every((p) => (dictWords && dictWords.size > 0 ? inDict(p) : p.length >= 3) || p.length > 3)
+  if (!/^[a-z]+(?:[-'’][a-z]+)*$/.test(x)) return false
+  const base = x.replace(/['’](?:s|re|ve|ll|d|m)$/g, '')
+  const stem = /n['’]t$/.test(base) && !inDict(base.slice(0, -2)) ? base.slice(0, -3) : base.replace(/['’]t$/, '')
+  if (stem.length <= 2) return (SHORT.has(stem) && stem !== 'i') || PROSE_2.has(stem)
+  return stem
+    .split(/[-'’]/)
+    .every((p) => (dictWords && dictWords.size > 0 ? inDict(p) : p.length >= 3) || p.length > 3 || (p.length <= 2 && (SHORT.has(p) || PROSE_2.has(p))))
+}
+const AMP_ACR = /^[A-Z]{1,4}&[A-Z]{1,4}$/
+const leadOk = (w) => {
+  const s = w.replace(/^[^A-Za-z0-9&]+|[^A-Za-z0-9&]+$/g, '')
+  return realWord(w) || AMP_ACR.test(s) || PROSE_NUM.test(s) || NUM_TOK.test(w)
 }
 const mathTok = (w) => {
   const x = w.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '')
@@ -292,7 +364,7 @@ const mathTok = (w) => {
     if (x.includes('-') && x.split('-').every((p) => !p || /^\d+$/.test(p) || PROSE_NUM.test(p) || realWord(p))) return false
     return true
   }
-  if (dictWords && dictWords.size > 0 && /^[a-z]+$/.test(x) && x.length <= 6 && !inDict(x) && !SHORT.has(x) && !['et', 'al', 'vs', 'eg', 'ie'].includes(x)) return true
+  if (dictWords && dictWords.size > 0 && /^[a-z]+$/.test(x) && x.length <= 6 && !inDict(x) && !SHORT.has(x) && !PROSE_2.has(x) && !['et', 'al', 'vs', 'eg', 'ie'].includes(x)) return true
   return false
 }
 export const hasMathTok = (t) => MATH.test(t) || t.split(/\s+/).some((w) => mathTok(w) === true)
@@ -302,8 +374,9 @@ export const mathy = (t) => {
   return r.length > 0 && r.filter(Boolean).length / r.length > 0.4
 }
 export const stripLead = (t) => {
-  if (!/^[^A-Za-z(“"‘']/.test(t) && realWord(t.split(/\s+/)[0] || '')) return t
   const ws = t.split(/\s+/)
+  const first = ws[0] || ''
+  if (!/^[^A-Za-z0-9(“"‘'$£€¥]/.test(t) && (leadOk(first) || (/^[A-Z]$/.test(first) && ws[1] && /^[a-z]/.test(ws[1]) && realWord(ws[1])))) return t
   let k = 0
   while (k < ws.length && k < 8 && !(realWord(ws[k]) && ws[k].replace(/[^A-Za-z]/g, '').length >= 3)) k++
   return k > 0 && k < ws.length ? ws.slice(k).join(' ') : t
@@ -313,7 +386,7 @@ export function ruleParas(pagesLines, pages, body) {
   const out = []
   let last = null
   let headOpen = false
-  const ends = (t) => /[.?!:"”)]$/.test(t)
+  const ends = (t) => /[.?!:]["”’')\]]*$/.test(t)
   pagesLines.forEach((lines, pi) => {
     const p = pages[pi]
     let prevY = null
@@ -340,7 +413,12 @@ export function ruleParas(pagesLines, pages, body) {
       widths[l.col] = Math.max(widths[l.col] || 0, l.w || 0)
       counts[l.col] = (counts[l.col] || 0) + 1
     })
-    const pageW = Math.max(1, ...kept.map((l) => l.w || 0))
+    const colWidths = Object.entries(widths)
+      .filter(([c]) => counts[c] >= 3)
+      .map(([, w]) => w)
+      .sort((a, b) => a - b)
+    const bodyWidths = kept.filter((l) => Math.abs(l.fs - body) < 1.5).map((l) => l.w || 0)
+    const pageW = colWidths[Math.floor(colWidths.length / 2)] || Math.max(1, ...(bodyWidths.length ? bodyWidths : kept.map((l) => l.w || 0)))
     const gaps = kept.slice(1).map((l, i) => kept[i].y - l.y).filter((g) => g > 0 && g < body * 4).sort((a, b) => a - b)
     const lineGap = gaps[Math.floor(gaps.length * 0.3)] || body * 1.2
     for (const l of kept) {
@@ -369,9 +447,15 @@ export function ruleParas(pagesLines, pages, body) {
         continue
       }
       headOpen = false
-      const proseWords = l.text.split(' ').filter((w) => realWord(w) && w.replace(/[^A-Za-z]/g, '').length >= 2).length
-      const lowLetters = lettersRatio < (proseWords >= 3 ? 0.4 : 0.55)
-      if (!head && (lowLetters || mathy(l.text) || (l.text.split(' ').length <= 2 && !l.text.split(' ').every(realWord)))) {
+      const contHyphen = !!(last && /[\u00AD-]$/.test(last.t) && /^[a-z]/.test(l.text))
+      const prevFrag = contHyphen ? (last.t.match(/([A-Za-z]+)[\u00AD-]$/) || [])[1] || '' : ''
+      const checkText = contHyphen && prevFrag ? prevFrag + l.text : l.text
+      const checkToks = checkText.split(' ')
+      const proseTail = !!(last && !ends(last.t) && !MATH.test(l.text) && checkToks.some(realWord) && checkToks.every(leadOk))
+      const proseWords = checkToks.filter((w) => realWord(w) && w.replace(/[^A-Za-z]/g, '').length >= 2).length
+      const lowLetters = !proseTail && lettersRatio < (proseWords >= 3 ? 0.4 : 0.55)
+      const shortJunk = checkToks.length <= 2 && !(checkToks.some(realWord) && checkToks.every(leadOk))
+      if (!head && (lowLetters || mathy(checkText) || shortJunk)) {
         if (MATH.test(l.text) || lowLetters) last = null
         continue
       }

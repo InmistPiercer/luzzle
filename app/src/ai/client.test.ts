@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addUsage, callAI, clearLegacyAIConfig, defaultAIConfig, emptyUsage, extractPartialJSON, isInsecureRemoteUrl, normalizeAIConfig, readLegacyAIConfig, type Tally, type Usage } from './client'
-import { costOf, deepseekPeak, matchPrice, money, priceOf } from './pricing'
+import { addUsage, callAI, callLong, clearLegacyAIConfig, defaultAIConfig, emptyUsage, extractPartialJSON, isInsecureRemoteUrl, normalizeAIConfig, readLegacyAIConfig, type Tally, type Usage } from './client'
+import { beijingTime, costOf, deepseekPeak, matchPrice, money, priceOf } from './pricing'
 import { AIError, type AIConfig } from './types'
 
 const T = '2026-11-14'
@@ -118,6 +118,32 @@ describe('callAI', () => {
     expect(out2).toEqual({ zh: '回退' })
   })
 
+  it.each(['openai', 'anthropic'] as const)('rejects a %s stream that ends before the provider completes', async (provider) => {
+    const content = '{"zh":"模拟响应"}'
+    const delta = provider === 'openai' ? { choices: [{ delta: { content } }] } : { type: 'content_block_delta', delta: { text: content } }
+    const encode = (tail: string) => new Response(`data: ${JSON.stringify(delta)}\n\n${tail}`, { headers: { 'content-type': 'text/event-stream' } })
+    const f = vi.fn<typeof fetch>()
+      .mockImplementationOnce(async () => encode(''))
+      .mockImplementationOnce(async () => encode(provider === 'openai' ? 'data: [DONE]\n\n' : 'data: {"type":"message_stop"}\n\n'))
+    const { d } = deps(f)
+    const call = () => callAI({ ...cfg, provider }, [], { ...d, json: true, onPartial: () => {} })
+    await expect(call()).rejects.toMatchObject({ code: 'format' })
+    await expect(call()).resolves.toEqual({ zh: '模拟响应' })
+  })
+
+  it('cancels the in-flight request without retrying a long task', async () => {
+    const controller = new AbortController()
+    const f = vi.fn<typeof fetch>((_, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    }))
+    const { d } = deps(f)
+    const result = callLong(cfg, 'system', 'user', { ...d, signal: controller.signal }, (out) => out)
+    const outcome = expect(result).rejects.toMatchObject({ code: 'cancelled' })
+    controller.abort()
+    await outcome
+    expect(f).toHaveBeenCalledTimes(1)
+  })
+
   it('enforces HTTPS for remote endpoints, omits credentials/referrer, and redacts API keys from errors', async () => {
     expect(isInsecureRemoteUrl('http://remote-relay.example.com/v1/chat/completions')).toBe(true)
     expect(isInsecureRemoteUrl('http://localhost:11434/v1/chat/completions')).toBe(false)
@@ -142,16 +168,24 @@ describe('pricing', () => {
     expect(matchPrice('Kimi-K3.1-Pro')?.label).toBe('Kimi K3.1 Pro')
     expect(matchPrice('glm-5.3-flash')?.label).toBe('GLM-5.3-Flash')
     expect(matchPrice('claude-opus-5-5')?.out).toBe(20)
+    expect(matchPrice('gpt-4o-mini')?.label).toBe('GPT-4o mini')
+    expect(matchPrice('gemini-2.5-flash')?.label).toBe('Gemini 2.5 Flash')
     expect(matchPrice('my-model')).toBeNull()
     expect(priceOf({ ...cfg, model: 'my-model', cur: 'CNY', price: { in: 7.1, out: 14.2 } })).toMatchObject({ in: 1, out: 2, custom: true })
   })
 
-  it('halves DeepSeek off peak and charges cache hits at the cache price', () => {
+  it('halves DeepSeek off peak by Beijing Time (UTC+8) and charges cache hits at the cache price', () => {
     const p = matchPrice('deepseek-chat')!
-    const peak = new Date('2026-11-17T07:00:00Z')
-    const night = new Date('2026-11-17T14:00:00Z')
+    const peak = new Date('2026-11-17T07:00:00Z') // Tue 15:00 Beijing
+    const morningPeak = new Date('2026-11-17T01:00:00Z') // Tue 09:00 Beijing
+    const lunch = new Date('2026-11-17T04:30:00Z') // Tue 12:30 Beijing
+    const night = new Date('2026-11-17T14:00:00Z') // Tue 22:00 Beijing
+    expect(beijingTime(peak).hhmm).toBe('15:00')
     expect(deepseekPeak(peak)).toBe(true)
-    expect(deepseekPeak(new Date('2026-11-15T07:00:00Z'))).toBe(false)
+    expect(deepseekPeak(morningPeak)).toBe(true)
+    expect(deepseekPeak(lunch)).toBe(false)
+    expect(deepseekPeak(night)).toBe(false)
+    expect(deepseekPeak(new Date('2026-11-15T07:00:00Z'))).toBe(false) // Sun 15:00 Beijing
     const t = { in: 1e6, out: 1e6, cached: 5e5 }
     expect(costOf(p, t, peak)).toBeCloseTo(0.5 * 0.3 + 0.5 * 0.006 + 1.2, 6)
     expect(costOf(p, t, night)).toBeCloseTo((0.5 * 0.3 + 0.5 * 0.006 + 1.2) / 2, 6)
@@ -186,7 +220,7 @@ describe('aiFailReason', async () => {
   it('keeps plain outcomes including insecure-url guard', () => {
     expect(aiFailReason(new AIError('quota'))).toBe('AI 额度已满')
     expect(aiFailReason(new AIError('insecure-url'))).toBe('远端接口须使用 HTTPS')
-    expect(aiFailReason(new AIError('http', '', 401))).toBe('离线释义 · AI 暂不可用')
+    expect(aiFailReason(new AIError('http', '', 401))).toBe('AI 接口拒绝授权，请检查 API Key 和模型权限')
     expect(aiFailReason(new AIError('network'))).toBe('离线释义 · AI 暂不可用')
   })
 })

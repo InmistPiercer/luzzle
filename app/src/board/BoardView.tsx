@@ -30,7 +30,7 @@ export function BoardView() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (useApp.getState().view !== 'board' || (e.target as Element).closest('input, textarea, [contenteditable]')) return
+      if (useApp.getState().view !== 'board' || e.defaultPrevented || (e.target as Element).closest('input, textarea, [contenteditable], [aria-modal="true"]')) return
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault()
         undoBoard()
@@ -40,13 +40,13 @@ export function BoardView() {
         const sel = useApp.getState().boardSel
         if (sel) {
           e.preventDefault()
-          useFlip.getState().toggle(compOf(useApp.getState().data, sel))
+          useFlip.getState().toggle(mode === 'box' ? [sel] : compOf(useApp.getState().data, sel))
         }
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  }, [mode])
 
   const ids = boardRootIds(data)
   const last = stack[stack.length - 1]

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPE } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as RKE, type PointerEvent as RPE } from 'react'
 import { escHTML, markDragEnd, startFloat } from '../app/drag'
 import { useApp } from '../app/store'
 import { allDocs, setDocFlags } from '../content/docs'
@@ -10,7 +10,7 @@ import { isPhraseId, lemmaOf } from '../learn/pieces'
 import { AppearancePop } from '../theme/AppearancePop'
 import { AnnBar } from './AnnBar'
 import { CtxDock } from './CtxDock'
-import { importReaderFile } from './docActions'
+import { importReaderFiles } from './docActions'
 import { ParaText } from './Paragraph'
 import { Popover } from './Popover'
 import { annPhraseParts, annToPhrase, closePop, curDocOf, needsRecall, normWordsOf, originsOf, pickCurrent, pickWord, recallGateId, togglePickWord, triggerAI, useReader } from './session'
@@ -18,10 +18,10 @@ import { Shelf } from './Shelf'
 import { DocBar } from './DocBar'
 import { pageOfPara, paginate, type Item } from './paginate'
 import type { TrMode } from '../core/types'
-import { loadTr, pendingBatches, srcOf, translateDoc, TR_PROMPT, useTr, zhOf } from './translate'
+import { loadTr, pendingBatches, srcOf, stopTranslation, translateDoc, TR_PROMPT, useTr, zhOf } from './translate'
 import { aiDeps, requireKey } from '../ai/ask'
 import { AIConfirm, confirmAI, planOf, type ScopeOption } from '../ai/Confirm'
-import { PdfBusy, PdfPicker, requestRebuild, usePdf } from '../pdf/PdfUI'
+import { allPdfPagesOf, PdfBusy, PdfPicker, pendingPdfPages, requestRebuild, usePdf } from '../pdf/PdfUI'
 
 type Mode = 'basic' | 'rebuilt'
 
@@ -70,6 +70,10 @@ export function ReaderView() {
   const doc = list.find((x) => x.id === cur) || list[0]
   const trMode: TrMode = doc?.tr || 'src'
   const curDoc = doc?.id || ''
+  useEffect(() => {
+    const job = useTr.getState().running
+    if (job && (job.docId !== curDoc || view !== 'read')) stopTranslation()
+  }, [curDoc, view])
   const canRebuild = !!doc && (!!doc.aiChunks?.length || doc.paras.some((p) => p.raw))
   const mode: Mode = doc?.rebuilt && canRebuild && (!doc.aiChunks || doc.parasAI) ? 'rebuilt' : 'basic'
   const pageLen = data.prefs.pageLen || 'mid'
@@ -116,10 +120,12 @@ export function ReaderView() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || (e.target as Element).closest('[aria-modal="true"]')) return
       if ((e.target as Element).matches('input,textarea,select')) return
       const r = useReader.getState()
       if (e.key === 'Escape') {
         r.set({ po: false, ctx: false, ann: null })
+        setPop(false)
       }
       if (useApp.getState().view === 'read' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const btn = document.querySelector<HTMLButtonElement>(e.key === 'ArrowLeft' ? '#pager-prev' : '#pager-next')
@@ -129,7 +135,7 @@ export function ReaderView() {
         }
         return
       }
-      if (useApp.getState().view === 'read' && e.key === 'Enter' && !r.po && r.ann) {
+      if (useApp.getState().view === 'read' && e.key === 'Enter' && !r.po && r.ann && !(e.target as Element).closest('button,a[href]')) {
         const part = annPhraseParts(r.ann)
         if (part.kept.length >= 2 && part.kept.length <= 6 && part.maxGap <= 6) {
           e.preventDefault()
@@ -137,7 +143,7 @@ export function ReaderView() {
         }
         return
       }
-      if (useApp.getState().view !== 'read' || !r.po || !r.sel || r.askNew || r.askHead) return
+      if (useApp.getState().view !== 'read' || !r.po || !r.sel || r.askNew || r.askHead || (e.target as Element).closest('button,a[href]')) return
       if (e.key === 'Enter') {
         const d = useApp.getState().data
         const gateId = recallGateId(d, r.sel)
@@ -280,6 +286,7 @@ export function ReaderView() {
       return
     }
     await loadTr(allParas)
+    if (useApp.getState().view !== 'read' || curDocOf(useApp.getState().data)?.id !== doc.id) return
     const map = useTr.getState().map
     const curBatch = pendingBatches([pages[page]], 0, map)
     const allBatch = pendingBatches(pages, page, map)
@@ -289,6 +296,7 @@ export function ReaderView() {
     }
     if (!requireKey()) return
     const start = (chunks: string[][], fit: number) => {
+      if (useApp.getState().view !== 'read' || curDocOf(useApp.getState().data)?.id !== doc.id) return
       showTr(m)
       void translateDoc(doc.id, chunks.slice(0, fit), { ai: useApp.getState().ai, call: aiDeps() }, say)
     }
@@ -323,16 +331,31 @@ export function ReaderView() {
     confirmAI({ title: m === 'bi' ? '双语翻译' : '全文译文', sub: doc.title, ...scopes[0].plan, onOk: scopes[0].onOk, scopes })
   }
 
-  const curPdfPage = pages[page]?.find((it) => it.p.pg != null)?.p.pg
+  const allPdfPgs = doc?.aiChunks ? allPdfPagesOf(doc) : []
+  const rawCurPgs = [...new Set((pages[page] || []).map((it) => it.p.pg).filter((n): n is number => n != null))]
+  const nextPageStartPg = pages[page + 1]?.find((it) => it.p.pg != null)?.p.pg
+  const curPdfPages = rawCurPgs.length
+    ? allPdfPgs.filter((pg) => {
+        const lo = Math.min(...rawCurPgs)
+        const hi = Math.max(...rawCurPgs)
+        if (pg >= lo && pg <= hi) return true
+        // Include intermediate PDF pages absorbed into a cross-page paragraph before the next reader screen starts
+        if (nextPageStartPg != null && pg > hi && pg < nextPageStartPg) return true
+        if (page === pages.length - 1 && pg > hi) return true
+        return false
+      })
+    : []
+  const pendingPgs = doc?.aiChunks ? pendingPdfPages(doc) : []
+  const curPendingPgs = curPdfPages.filter((pg) => pendingPgs.includes(pg))
+  const curNeedsRebuild = !!doc?.aiChunks && (!doc.parasAI || curPendingPgs.length > 0)
 
   const setMode = (m: Mode) => {
     if (!doc) return
-    if (m === 'rebuilt' && doc.aiChunks) return requestRebuild(doc, curPdfPage)
+    if (m === 'rebuilt' && doc.aiChunks) return requestRebuild(doc, curPdfPages)
     if (m === 'rebuilt') update((d) => setDocFlags(d, doc.id, { rebuilt: true, cachedRebuilt: true }))
     if (m === 'basic') update((d) => setDocFlags(d, doc.id, { rebuilt: false }))
   }
 
-  const importFile = importReaderFile
 
   const renderItem = (it: Item) => {
                 const p = it.p
@@ -354,13 +377,14 @@ export function ReaderView() {
                 const zh = zhOf(trMap, p)
                 if (trMode === 'tr')
                   return (
-                    <p key={id} data-tid={id} className={`tr-p${zh ? '' : ' wait'}`} onClick={() => goPara('src', id)}>
+                    <p key={id} data-tid={id} lang="zh-CN" className={`tr-p${zh ? '' : ' wait'}`} onClick={() => goPara('src', id)}>
                       {zh || srcOf(p)}
                     </p>
                   )
+                const isBody = !p.kind || p.kind === 'para'
                 return (
                   <Fragment key={id}>
-                    <p data-id={id} className={p.kind && p.kind !== 'para' && p.kind !== 'back' ? `p-${p.kind}` : undefined}>
+                    <p data-id={id} className={isBody ? 'p-body' : p.kind !== 'back' ? `p-${p.kind}` : undefined}>
                       {zh && trMode === 'src' && (
                         <button className="tr-go" aria-label="译文" onClick={() => goPara('tr', id)}>
                           译
@@ -368,7 +392,11 @@ export function ReaderView() {
                       )}
                       <ParaText data={data} dictSeq={dictSeq} p={p} rebuilt={!!doc.rebuilt} selWi={sel && sel.pid === id && view === 'read' ? sel.wi : null} pickWis={ann?.pickOnly && ann.pid === id ? ann.wis : null} />
                     </p>
-                    {zh && trMode === 'bi' && <div className="tr-sub">{zh}</div>}
+                    {zh && trMode === 'bi' && (
+                      <div className="tr-sub" lang="zh-CN">
+                        {zh}
+                      </div>
+                    )}
                   </Fragment>
                 )
               }
@@ -399,6 +427,35 @@ export function ReaderView() {
       if (seg) openAnn(seg)
       else set({ ann: null })
     } else if (seg) openAnn(seg)
+  }
+
+  const onReadingKey = (e: RKE<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    const word = target.closest<HTMLElement>('.w')
+    if (target !== e.currentTarget && !word) return
+    if (e.altKey && !e.metaKey && !e.ctrlKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+      const words = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('.w')).filter((node) => node.getClientRects().length > 0)
+      if (!words.length) return
+      const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1
+      const index = word ? words.indexOf(word) + step : step > 0 ? 0 : words.length - 1
+      e.preventDefault()
+      words[Math.max(0, Math.min(words.length - 1, index))].focus()
+    } else if (word && (e.key === ' ' || e.key === 'Enter')) {
+      const reader = useReader.getState()
+      const pid = word.closest('p')?.dataset.id
+      if (!pid) return
+      const wi = Number(word.dataset.wi)
+      if (!e.metaKey && !e.ctrlKey) {
+        if (e.key === 'Enter' && reader.ann?.pickOnly) return
+        if (reader.po && reader.sel?.pid === pid && reader.sel?.wi === wi) {
+          if (e.key === ' ') e.preventDefault()
+          return
+        }
+      }
+      e.preventDefault()
+      if (e.metaKey || e.ctrlKey) togglePickWord(pid, wi)
+      else pickWord(pid, wi, word.dataset.w || '')
+    }
   }
 
   const onColDown = (e: RPE) => {
@@ -435,12 +492,27 @@ export function ReaderView() {
         <DocBar doc={doc} onPick={(id) => set({ cur: id, sel: null, po: false, ctx: false, ann: null })} onImport={() => file.current?.click()} />
         <div className="row2">
           {canRebuild && (
-            <button className={`btn sm ${mode === 'rebuilt' ? 'on' : 'alt'}`} id="mode" onClick={() => setMode(mode === 'rebuilt' ? 'basic' : 'rebuilt')}>
-              <svg className="ico">
-                <use href="#i-spark" />
-              </svg>
-              AI 重排{running?.docId === doc?.id ? ` ${running.done}/${running.total}` : ''}
-            </button>
+            <>
+              <button
+                className={`btn sm ${mode === 'rebuilt' && !curNeedsRebuild ? 'on' : 'alt'}`}
+                id="mode"
+                onClick={() => (curNeedsRebuild ? requestRebuild(doc, curPdfPages) : setMode(mode === 'rebuilt' ? 'basic' : 'rebuilt'))}
+              >
+                <svg className="ico">
+                  <use href="#i-spark" />
+                </svg>
+                {running?.docId === doc?.id
+                  ? `AI 重排 ${running.done}/${running.total}`
+                  : doc?.parasAI && curNeedsRebuild
+                    ? 'AI 重排本页'
+                    : 'AI 重排'}
+              </button>
+              {mode === 'rebuilt' && !curNeedsRebuild && pendingPgs.length > 0 && running?.docId !== doc?.id && (
+                <button className="btn alt sm" id="mode-rest" onClick={() => requestRebuild(doc, curPdfPages, true)}>
+                  重排其余 {pendingPgs.length} 页
+                </button>
+              )}
+            </>
           )}
           {doc && (
             <div className="seg" id="trmode" role="group">
@@ -451,7 +523,7 @@ export function ReaderView() {
                 </button>
               ))}
               {trRun?.docId === doc.id && (
-                <button className="seg-x" aria-label="停止翻译" onClick={() => useTr.getState().set({ running: null })}>
+                <button className="seg-x" aria-label="停止翻译" onClick={stopTranslation}>
                   ×
                 </button>
               )}
@@ -482,6 +554,9 @@ export function ReaderView() {
       <div
         className={`reader${pen !== 'pick' ? ' pen-active' : ''}`}
         id="rd"
+        tabIndex={doc ? 0 : undefined}
+        aria-label="阅读正文"
+        onKeyDown={onReadingKey}
         data-pen={pen !== 'pick' ? penColor : undefined}
         data-mode={mode}
         onDragOver={(e) => {
@@ -492,10 +567,10 @@ export function ReaderView() {
         onDrop={(e) => {
           e.preventDefault()
           setDropHot(false)
-          importFile(e.dataTransfer.files[0])
+          importReaderFiles(e.dataTransfer.files)
         }}
       >
-        <div className="col" id="col" onClick={onColClick} onPointerDown={onColDown}>
+        <div className="col" id="col" lang="en" onClick={onColClick} onPointerDown={onColDown}>
           {!doc ? (
             <div className="empty-state">
               <div style={{ font: '800 22px var(--read)' }}>{vault.name}</div>
@@ -546,9 +621,10 @@ export function ReaderView() {
         ref={file}
         type="file"
         accept=".epub,.pdf,.txt,.md,.markdown"
+        multiple
         hidden
         onChange={(e) => {
-          importFile(e.target.files?.[0])
+          if (e.target.files) importReaderFiles(e.target.files)
           e.target.value = ''
         }}
       />
