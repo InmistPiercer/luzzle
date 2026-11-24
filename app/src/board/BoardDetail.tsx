@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { senseById } from '../lang/senses'
+import { useEffect, useState } from 'react'
+import { useDataSeq } from '../core/shards'
+import type { Entry } from '../core/types'
+import { ensureSenses, phraseRow, senseById } from '../lang/senses'
 import { useApp } from '../app/store'
 import { today } from '../core/date'
 import { lemmatize } from '../lang/lemmatize'
@@ -61,12 +63,35 @@ export function openForge(id: string) {
   useApp.setState({ forgeWord: id, forgeAll: !isDueNow, view: 'forge' })
 }
 
+export function exampleParts(raw: string): { t: string; hit: boolean }[] {
+  if (!raw.trim()) return []
+  return raw
+    .trim()
+    .split(/(\[\[[^\]]+\]\])/g)
+    .filter(Boolean)
+    .map((seg) => (seg.startsWith('[[') && seg.endsWith(']]') ? { t: seg.slice(2, -2), hit: true } : { t: seg, hit: false }))
+}
+
+export const boardExample = (p: Pick<Entry, 'lemma' | 'pos' | 'sid'> | undefined) => {
+  if (!p) return ''
+  return (p.pos === 'phrase' ? phraseRow(p.lemma)?.[6] : senseById(p.sid)?.[7]) || ''
+}
+
 export function BoardDetail() {
   const d = useApp((x) => x.data)
   const id = useApp((x) => x.boardSel)
   const say = useApp((x) => x.say)
   const setPrefs = useApp((x) => x.setPrefs)
+  useDataSeq((x) => x.seq)
   const defLang = d.prefs.defLang || 'en'
+  const piece = id ? d.pieces[id] : undefined
+  const lemma = piece?.lemma
+  const sid = piece?.sid
+  const sidWord = sid && sid.includes('#') ? sid.slice(0, sid.lastIndexOf('#')) : undefined
+  useEffect(() => {
+    if (lemma) void ensureSenses(lemma)
+    if (sidWord && sidWord !== lemma?.toLowerCase()) void ensureSenses(sidWord)
+  }, [lemma, sidWord])
   const ety = useEtymLine(id && d.pieces[id] && !isPhraseId(d, id) ? d.pieces[id].lemma : null)
   if (!id || !d.learn[id]) return <aside className="binfo" id="binfo" />
   const p = d.pieces[id]
@@ -94,6 +119,13 @@ export function BoardDetail() {
   const occEn = p.ai?.en && !/[\u4e00-\u9fff]/.test(p.ai.en) && p.ai.en !== enGloss ? p.ai.en : ''
   const cleanZh = zhSenseLine(zhGloss)
   const subTitle = defLang === 'en' ? `${p.pos || 'v.'} · ${stripPos(enGloss) || enGloss}` : `${ZH_POS[p.pos || ''] || p.pos || ''} · ${cleanZh || '—'}`
+  const exParts = exampleParts(boardExample(p))
+  const exRow = exParts.length > 0 && (
+    <div className="binfo-exp-row">
+      <span className="binfo-exp-k">{defLang === 'en' ? 'Example' : '例句'}</span>
+      <span className="binfo-exp-ex">{exParts.map((seg, i) => (seg.hit ? <mark key={i}>{seg.t}</mark> : seg.t))}</span>
+    </div>
+  )
   return (
     <aside className="binfo" id="binfo">
       <div className="binfo-top">
@@ -171,6 +203,7 @@ export function BoardDetail() {
                 <span>{ety || p.etymBase}</span>
               </div>
             )}
+            {exRow}
           </>
         ) : (
           <>
@@ -185,6 +218,7 @@ export function BoardDetail() {
                 <span>{ety}</span>
               </div>
             )}
+            {exRow}
             {senseList.length > 1 && (
               <ol className="binfo-sense-list">
                 {senseList.map((s, idx) => (

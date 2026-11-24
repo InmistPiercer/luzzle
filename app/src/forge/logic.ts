@@ -31,16 +31,27 @@ export interface Sentence {
   form?: string
 }
 
+const dedupSentences = <T extends { s: string }>(items: T[]): T[] => {
+  const seen = new Set<string>()
+  return items.filter((x) => {
+    const key = norm(x.s)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 export function freshSentence(d: AppState, id: string, seed: string, withEx = true): Sentence {
   const e = d.pieces[id]
   const first = srcSentence(d, id)
+  const firstNorm = norm(first)
   if (!e) return { s: first, fresh: false }
   const lemma = e.lemma.toLowerCase()
   const phrase = isPhraseId(d, id)
   const originalForm = e.form || e.lemma
   const others = (d.learn[id]?.occ || []).flatMap((o) => {
     const s = stripCites(o.s)
-    if (!s || s === first) return []
+    if (!s || norm(s) === firstNorm) return []
     const form = o.form || (phrase ? originalForm : tokenFor(s, lemma) || undefined)
     return [{ s, form, fresh: true }]
   })
@@ -48,21 +59,21 @@ export function freshSentence(d: AppState, id: string, seed: string, withEx = tr
     if (!a.s.includes('___')) return []
     const form = a.a?.[0] || originalForm
     const s = a.s.replace('___', form)
-    return s !== first ? [{ s, form, ans: a.a, fresh: true }] : []
+    return norm(s) !== firstNorm ? [{ s, form, ans: a.a, fresh: true }] : []
   })
-  const exs = !withEx || isPhraseId(d, id) ? [] : examplesOf(lemma).filter((x) => x !== first).flatMap((x) => {
+  const exs = !withEx || isPhraseId(d, id) ? [] : examplesOf(lemma).filter((x) => norm(x) !== firstNorm).flatMap((x) => {
     const t = tokenFor(x, lemma)
     return t ? [{ s: x, fresh: false, form: t }] : []
   })
-  const own = senseExamples(e).filter((x) => x.s !== first)
-  const pool = others.length ? others : own.length ? own : alts.length ? alts : exs
+  const own = senseExamples(e).filter((x) => norm(x.s) !== firstNorm)
+  const pool = dedupSentences(others.length ? others : own.length ? own : alts.length ? alts : exs)
   return pool.length ? pool[hash(seed) % pool.length] : { s: first, fresh: false }
 }
 
 const senseExamples = (e: Entry) =>
-  [senseById(e.sid)?.[7], senseById(e.sid)?.[8]].filter((x): x is string => !!x).map((x) => {
+  [senseById(e.sid)?.[7], senseById(e.sid)?.[8]].filter((x): x is string => !!x?.trim()).map((x) => {
     const form = exampleAnswer(x)
-    return { s: plainExample(x), form, ans: [form.toLowerCase()], fresh: true }
+    return { s: plainExample(x).trim(), form, ans: [form.toLowerCase()], fresh: true }
   })
 
 export function meaningOf(e: Entry | undefined, lang: 'zh' | 'en' = 'zh'): string {
@@ -280,6 +291,7 @@ export function senseSentence(d: AppState, id: string, seed: string): SenseSente
   if (!e || !r || !isPoly(e, lang)) return null
   const senses = sensesOfPiece(e, lang)
   const first = srcSentence(d, id)
+  const firstNorm = norm(first)
   const row = senseById(e.sid)
   const targetLine = row ? senseLine(row, lang) : ''
   const rawList = e.senses?.length ? e.senses : e.dict || []
@@ -293,11 +305,17 @@ export function senseSentence(d: AppState, id: string, seed: string): SenseSente
   const k = idx + 1
   if (!k) return null
   const rawK = r.occ[0]?.ai?.sense
-  const pool: SenseSentence[] = [
-    ...r.occ.filter((o) => o.s && (!o.ai?.sense || o.ai.sense === rawK)).map((o) => ({ s: stripCites(o.s), fresh: stripCites(o.s) !== first, k })),
-    ...(e.alt || []).filter((a) => !a.k || a.k === rawK || a.k === k).map((a) => ({ s: a.s.replace('___', a.a?.[0] || e.form || e.lemma), fresh: true, k })),
-    ...senseExamples(e).map((x) => ({ s: x.s, fresh: true, k })),
-  ]
+  const pool = dedupSentences<SenseSentence>([
+    ...r.occ.filter((o) => o.s && (!o.ai?.sense || o.ai.sense === rawK)).map((o) => {
+      const s = stripCites(o.s)
+      return { s, fresh: norm(s) !== firstNorm, k }
+    }),
+    ...(e.alt || []).filter((a) => !a.k || a.k === rawK || a.k === k).map((a) => {
+      const s = a.s.replace('___', a.a?.[0] || e.form || e.lemma)
+      return { s, fresh: norm(s) !== firstNorm, k }
+    }),
+    ...senseExamples(e).map((x) => ({ s: x.s, form: x.form, fresh: norm(x.s) !== firstNorm, k })),
+  ])
   if (!pool.length) return null
   const fresh = pool.filter((x) => x.fresh)
   const list = fresh.length ? fresh : pool

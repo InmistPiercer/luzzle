@@ -10,6 +10,39 @@ RAW = os.path.join(ROOT, 'raw')
 OUT = os.path.join(ROOT, 'public', 'ex')
 PER_WORD = 2
 
+NAME_RE = re.compile(r'\b(Tom|Mary|Sami|Layla)\b')
+EXPLICIT_RE = re.compile(
+    r'\b(fuck\w*|shit\w*|bitch\w*|cunt\w*|slut\w*|whore\w*|bastard\w*|porn\w*|orgasm\w*|incest\w*|pedophil\w*|molest\w*|castrat\w*|clit\w*|dickhead\w*|asshole\w*|motherfuck\w*|hell to pay|blowjob\w*|masturbat\w*|dildo\w*)\b',
+    re.I,
+)
+VIOLENT_RE = re.compile(
+    r'\b(murder\w*|suicid\w*|rape|raped|rapes|raping|rapist\w*|prostitut\w*|tortur\w*|decapitat\w*|slaughter\w*|genocid\w*|flay\w*|mutilat\w*)\b',
+    re.I,
+)
+LEGAL_OK = {'accuse', 'alibi', 'allege', 'arrest', 'convict', 'coroner', 'manslaughter', 'murder', 'murderer', 'murderous', 'plead'}
+
+
+def is_clean_sentence(s, word=''):
+    if NAME_RE.search(s) or EXPLICIT_RE.search(s):
+        return False
+    if VIOLENT_RE.search(s) and word not in LEGAL_OK:
+        return False
+    if word in LEGAL_OK and re.search(r'\b(rape|raped|rapes|raping|rapist\w*|prostitut\w*|decapitat\w*|tortur\w*|mutilat\w*|suicid\w*)\b', s, re.I):
+        return False
+    return True
+
+
+def is_near_dup(s, existing):
+    a = set(re.findall(r'[a-z]+', s.lower()))
+    if not a:
+        return False
+    for prev in existing:
+        b = set(re.findall(r'[a-z]+', prev.lower()))
+        u = a | b
+        if u and len(a & b) / len(u) >= 0.85:
+            return True
+    return False
+
 
 def lexicon():
     lemma_of = {}
@@ -46,7 +79,7 @@ def main():
             if not re.fullmatch(r"[A-Za-z0-9 ,.;:'’?!-]+", s) or not s[0].isupper():
                 continue
             toks = re.findall(r"[A-Za-z]+", s)
-            if not 7 <= len(toks) <= 18 or any(t[0].isupper() for t in toks[1:]):
+            if not 7 <= len(toks) <= 18 or any(t[0].isupper() and t != 'I' for t in toks[1:]) or NAME_RE.search(s) or EXPLICIT_RE.search(s):
                 continue
             seen = set()
             for t in toks:
@@ -54,7 +87,7 @@ def main():
                 if not lw or lw not in keep or lw in seen or len(lw) < 4:
                     continue
                 seen.add(lw)
-                if len(picks[lw]) < PER_WORD:
+                if len(picks[lw]) < PER_WORD and is_clean_sentence(s, lw) and not is_near_dup(s, picks[lw]):
                     picks[lw].append(s)
     shards = defaultdict(dict)
     for w, ss in picks.items():

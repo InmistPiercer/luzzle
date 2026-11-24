@@ -736,6 +736,7 @@ mark { background: color-mix(in srgb, var(--s1) 60%, transparent); color: inheri
 .binfo-exp-hd { font: 800 12px var(--ui); color: var(--mut); }
 .binfo-exp-row { display: flex; align-items: baseline; gap: 8px; font-size: 13px; line-height: 1.5; }
 .binfo-exp-k { flex: none; font: 800 11px var(--ui); color: var(--mut); background: var(--sheet); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+.binfo-exp-ex { font-family: var(--read); color: var(--ink); }
 .binfo-sense-list { margin: 2px 0 0; padding-left: 18px; display: grid; gap: 4px; font: 600 12.5px/1.5 var(--ui); color: var(--mut); }
 .binfo-sense-list li.on { color: var(--ink); font-weight: 800; }
 

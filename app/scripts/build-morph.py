@@ -56,6 +56,30 @@ def etym_table():
     return out
 
 
+def clean_gloss(text):
+    s = re.sub(r'\[[^\]]*\]|[（(][^）)]*[）)]|〈[^〉]*〉|【[^】]*】|〔[^〕]*〕', '', text)
+    for part in re.split(r'[,，;；：:。]', s):
+        g = re.sub(r'^[.。\'\"()（）\[\]【】〔〕〈〉\s]+|[.。\'\"()（）\[\]【】〔〕〈〉\s]+$', '', part)
+        g = re.sub(r'[()（）\[\]【】〔〕〈〉]', '', g)
+        if g:
+            return g if len(g) <= 14 else ''
+    return ''
+
+
+def load_senses_zh():
+    out = {}
+    path = os.path.join(ROOT, 'data', 'senses.tsv')
+    if not os.path.exists(path):
+        return out
+    with open(path, encoding='utf-8') as f:
+        next(f, None)
+        for line in f:
+            r = line.rstrip('\n').split('\t')
+            if len(r) > 5 and r[0] and r[5] and r[0] not in out:
+                out[r[0]] = r[5]
+    return out
+
+
 def ecdict():
     out = {}
     pos = {}
@@ -71,7 +95,7 @@ def ecdict():
                 continue
             m = re.match(r'^((?:[a-z]+\.\s*(?:[&/,]\s*)?)+)\s*(.*)$', lines[0])
             text = m.group(2) if m else lines[0]
-            zh = re.split(r'[,，;；]', re.sub(r'\[[^\]]*\]|[（(][^）)]*[）)]', '', text))[0].strip()
+            zh = clean_gloss(text)
             freq = int(row[9] or 0) or int(row[8] or 0) or 999999
             if re.search(r'(^|/)0:[a-z]', row[10] or '') and re.search(r'(^|/)1:[^/]*[pdi3]', row[10] or ''):
                 infl.add(w)
@@ -324,12 +348,14 @@ def main():
         for part in p:
             if len(part) == 2:
                 index[part[1]].append(w)
+    senses_zh = load_senses_zh()
     idx = {}
     for mid, ws in index.items():
-        ws = sorted((w for w in ws if w not in infl and dic[w][0] and not re.search(r'[A-Za-z<>=]', dic[w][0])), key=lambda x: dic[x][1])
+        gloss_of = lambda x: senses_zh.get(x) or dic[x][0]
+        ws = sorted((w for w in ws if w not in infl and gloss_of(w) and not re.search(r'[A-Za-z<>=]', gloss_of(w))), key=lambda x: dic[x][1])
         top = ws[:40]
         more = [w for w in ws[40:] if dic[w][1] < 999999 and not extended(w, segs[w])][:10]
-        idx[mid] = [[w, dic[w][0]] for w in top + more]
+        idx[mid] = [[w, gloss_of(w)] for w in top + more]
     open(os.path.join(OUT, 'index.json'), 'w', encoding='utf-8').write(json.dumps(idx, ensure_ascii=False, separators=(',', ':')))
     etym = {w: [e['cls'], e['zh'], e['en']] for w, e in ety.items() if e['cls'] in ('x', 'o')}
     for w, p in segs.items():

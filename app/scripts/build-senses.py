@@ -40,7 +40,8 @@ for r in tsv('phrases.tsv'):
 print('phrases', shards('phrase', phrases))
 
 ecd = {}
-if os.path.exists(RAW):
+has_raw = os.path.exists(RAW)
+if has_raw:
     with open(RAW, encoding='utf-8') as f:
         rd = csv.reader(f)
         next(rd)
@@ -49,12 +50,27 @@ if os.path.exists(RAW):
             ex = dict(p.split(':', 1) for p in row[10].replace('\\n', '').split('/') if ':' in p)
             rank = int(row[9] or 0) or int(row[8] or 0)
             ecd[w] = (ex.get('0'), rank, row[2], row[4])
+else:
+    dict_dir = os.path.join(PUB, 'dict')
+    if os.path.isdir(dict_dir):
+        for fn in sorted(os.listdir(dict_dir)):
+            if not fn.endswith('.json') or fn == 'index.json':
+                continue
+            data = json.load(open(os.path.join(dict_dir, fn), encoding='utf-8'))
+            for w, entry in data.items():
+                if not isinstance(entry, list) or len(entry) < 4:
+                    continue
+                ex = dict(p.split(':', 1) for p in (entry[3] or '').replace('\\n', '').split('/') if ':' in p)
+                rank = int(entry[5] or 0) if len(entry) > 5 and entry[5] else 0
+                ecd[w.lower()] = (ex.get('0'), rank, entry[2] if len(entry) > 2 else '', entry[1] if len(entry) > 1 else '')
 
 infl = {}
 for r in tsv('inflections.tsv'):
+    if r['form_type'] == 'adverb':
+        continue
     for f in r['form'].split('/'):
         f = f.strip()
-        if not f or ' ' in f or "'" in f or f == r['word']:
+        if not f or ' ' in f or "'" in f or f == r['word'] or f in senses:
             continue
         known = ecd.get(f)
         if known and known[0]:
@@ -62,25 +78,26 @@ for r in tsv('inflections.tsv'):
         infl.setdefault(f, r['word'])
 print('inflections', shards('infl', infl))
 
-POS = {'n': 'n.', 'v': 'v.', 'a': 'adj.', 's': 'adj.', 'adj': 'adj.', 'r': 'adv.', 'adv': 'adv.'}
-defs = {}
-for w, (_, rank, d, _p) in ecd.items():
-    if w in senses or not rank or not re.fullmatch(r'[a-z][a-z-]*', w) or not d:
-        continue
-    out = []
-    for line in d.replace('\\n', '\n').split('\n'):
-        m = re.match(r'^([a-z]+)\.?\s+(.*)$', line.strip())
-        if not m or m.group(1) not in POS:
+if has_raw:
+    POS = {'n': 'n.', 'v': 'v.', 'a': 'adj.', 's': 'adj.', 'adj': 'adj.', 'r': 'adv.', 'adv': 'adv.'}
+    defs = {}
+    for w, (_, rank, d, _p) in ecd.items():
+        if w in senses or not rank or not re.fullmatch(r'[a-z][a-z-]*', w) or not d:
             continue
-        p = POS[m.group(1)]
-        if any(x[0] == p for x in out):
-            continue
-        out.append([p, m.group(2).split(';')[0].strip()])
-        if len(out) >= 3:
-            break
-    if out:
-        defs[w] = out
-print('dictionary definitions', shards('def', defs))
+        out = []
+        for line in d.replace('\\n', '\n').split('\n'):
+            m = re.match(r'^([a-z]+)\.?\s+(.*)$', line.strip())
+            if not m or m.group(1) not in POS:
+                continue
+            p = POS[m.group(1)]
+            if any(x[0] == p for x in out):
+                continue
+            out.append([p, m.group(2).split(';')[0].strip()])
+            if len(out) >= 3:
+                break
+        if out:
+            defs[w] = out
+    print('dictionary definitions', shards('def', defs))
 
 spell = {r['uk']: r['us'] for r in tsv('spelling_uk_us.tsv')}
 dump(os.path.join(ROOT, 'src', 'lang', 'ukus.json'), spell)

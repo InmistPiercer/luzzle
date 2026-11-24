@@ -1,8 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../app/store'
-import { blankOf, maskPhrase, phN, PH_DONE, phraseTokens, taskOfPhrase } from '../learn/phrase'
+import { useDataSeq } from '../core/shards'
+import type { AppState } from '../core/types'
+import { ensureSenses, phraseRow, plainExample } from '../lang/senses'
+import { blankOf, maskPhrase, phN, PH_DONE, phraseTokens, taskOfPhrase, type PhraseTask } from '../learn/phrase'
 import { meaningOf, norm, shuffle, srcSentence } from './logic'
 import { Ans, Reveal } from './quiz'
+
+export function phraseMasked(d: Pick<AppState, 'pieces' | 'learn'>, id: string, task: PhraseTask): string | null {
+  const e = d.pieces[id]
+  if (!e) return null
+  const src = srcSentence(d as AppState, id)
+  if (task === 'complete' || task === 'write') {
+    const raw = phraseRow(e.lemma)?.[6]
+    if (raw) {
+      const exPlain = plainExample(raw).trim()
+      const exMasked = maskPhrase(exPlain, e.lemma)
+      if (exMasked && exMasked.includes('___') && norm(exPlain) !== norm(src)) return exMasked
+    }
+  }
+  return maskPhrase(src, e.lemma)
+}
 
 export function PhraseDots({ n }: { n: number }) {
   return (
@@ -18,16 +36,21 @@ export function PhraseCard({ id, core, onAnswer, onNext }: { id: string; core: s
   const d = useApp((x) => x.data)
   const e = d.pieces[id]
   const r = d.learn[id]
+  useDataSeq((x) => x.seq)
   const [task] = useState(() => taskOfPhrase(r))
   const [picked, setPicked] = useState<number[]>([])
   const [input, setInput] = useState('')
   const [out, setOut] = useState<boolean | null>(null)
+  const lemma = e?.lemma
+  useEffect(() => {
+    if (lemma) void ensureSenses(lemma)
+  }, [lemma])
   if (!e || !r) return null
   const toks = phraseTokens(e.lemma)
   const defLang = d.prefs.defLang || 'en'
   const rawMean = meaningOf(e, defLang)
   const zh = defLang === 'en' && /[\u4e00-\u9fff]/.test(rawMean) ? '' : rawMean
-  const masked = maskPhrase(srcSentence(d, id), e.lemma)
+  const masked = phraseMasked(d, id, task)
   const blank = blankOf(e.lemma, core)
   const pool = (() => {
     const sh = shuffle(

@@ -2,12 +2,13 @@ import { create } from 'zustand'
 import { aiErr, askJSON, requireKey } from '../ai/ask'
 import { useApp } from '../app/store'
 import { today } from '../core/date'
+import type { AppState } from '../core/types'
 import { guessPosBySuffix, lemmatize } from '../lang/lemmatize'
 import { createPiece, entryFromSurface, newPieceId, piecesOfLemma } from '../learn/pieces'
 import { MorphEngine, norm, type Analysis, type MorphCtx, type MorphState } from './engine'
 import { ensureMorph, ensureMorphIndex } from './local'
 import { ensureDict } from '../lang/lexdict'
-import { ensureSenses } from '../lang/senses'
+import { ensureSenses, plainExample, sensesOfWord } from '../lang/senses'
 import { docSentence, ensureEx, examplesOf, tokenFor } from '../lang/examples'
 
 interface MxUI {
@@ -87,13 +88,26 @@ export async function aiSplit(w: string | null, ctx: MorphCtx | null = null) {
   }
 }
 
+export function morphVocabSentence(d: AppState, w: string, ctxS?: string, decX?: string): string {
+  const rawEx = sensesOfWord(w)[0]?.[7]
+  const senseEx = rawEx ? plainExample(rawEx).trim() : ''
+  return (
+    ctxS ||
+    docSentence(d, w) ||
+    (senseEx && tokenFor(senseEx, w) ? senseEx : '') ||
+    examplesOf(w).find((x) => tokenFor(x, w)) ||
+    decX ||
+    ''
+  )
+}
+
 export async function addToVocab(w: string, info?: { z?: string; p?: string }) {
   if (vocabPieces(w).length) return
   await Promise.all([ensureEx(w), ensureDict(w), ensureSenses(w)])
   const e = engine()
   const dec = e.decomposition(w)
   const c = e.ms.words[w]?.ctx.find((x) => x.s && tokenFor(x.s, w))
-  let s = c?.s || docSentence(app().data, w) || examplesOf(w).find((x) => tokenFor(x, w)) || dec?.x || ''
+  let s = morphVocabSentence(app().data, w, c?.s, dec?.x)
   if (!s && app().ai.apiKey) {
     try {
       const r = await askJSON(`Write one natural English sentence (10-20 words) using the word "${w}". Reply ONLY JSON {"s":"..."}`)

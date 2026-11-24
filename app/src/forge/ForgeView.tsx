@@ -265,12 +265,15 @@ function WordForge({
   const curDue = r ? dueCard(r, day) : null
   const replayKind: CardKind | null = k && again.has(k) ? (r?.form?.last === day ? 'form' : 'meaning') : null
   const effKind: CardKind = curDue || replayKind || 'meaning'
+  const step = (k && againStep[k]) || 0
+  const reps = r ? r.sched.reps + (r.form?.reps || 0) : 0
+  const sentSeed = (t: Task) => `${k}|${day}|${t}|${reps}|${step}|${allRound}`
   const key = `${k}|${day}|${qmode}|${defLang}|${seq}`
   let it = item
   if (r && k && (it?.key !== key || (!graded && (Boolean(curDue) !== it.dueNow || it.kind !== effKind)))) {
     let b = taskFor(r, effKind, hasMeaning(d, k), isPoly(e, defLang))
     if (b.task === 'spell' && hasSharedSpell(d, k)) b = { task: 'fill', hint: false }
-    if (b.task === 'sense' && !senseSentence(d, k, k + day)) b = { ...b, task: 'recallNew' }
+    if (b.task === 'sense' && !senseSentence(d, k, sentSeed('sense'))) b = { ...b, task: 'recallNew' }
     it = { key, kind: effKind, base: b, dueNow: !!curDue, pend: pendingUseOf(r, day), sents: {} }
     setItem(it)
   }
@@ -279,7 +282,6 @@ function WordForge({
   const dueNow = !!it?.dueNow
   const isDown = !!down
   const isAgainDrill = !dueNow && !!k && again.has(k)
-  const step = (k && againStep[k]) || 0
   const autoTask: Task = (() => {
     if (!isAgainDrill || step < 2) return base.task
     const t1 = EASIER[base.task] || base.task
@@ -295,8 +297,8 @@ function WordForge({
   if (it && k && (!it.sents[task] || (!graded && !revealed && !input && !sent.fresh))) {
     const original: Sent = { s: srcSentence(d, k), fresh: false }
     const next = task === 'sense'
-      ? senseSentence(d, k, k + day) || original
-      : needFresh ? freshSentence(d, k, k + day, practice && task === 'fill') : original
+      ? senseSentence(d, k, sentSeed(task)) || original
+      : needFresh ? freshSentence(d, k, sentSeed(task), practice && task === 'fill') : original
     if (!it.sents[task] || next.s !== sent.s) {
       sent = next
       setItem({ ...it, sents: { ...it.sents, [task]: next } })

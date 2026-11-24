@@ -3,7 +3,8 @@ import { DEMO_ENTRIES } from '../content/demo'
 import { seedDemo } from '../content/seed'
 import { addOccurrence, createPiece, entryFromSurface } from '../learn/pieces'
 import { setExamples, tokenFor } from '../lang/examples'
-import { confOf, freshSentence, localJudge, maskParts, matchesForm, matchesWord, meaningChoices, meaningOf, stableRows, todayDone, wordDefOf } from './logic'
+import { setSenseData } from '../lang/senses'
+import { confOf, freshSentence, localJudge, maskParts, matchesForm, matchesWord, meaningChoices, meaningOf, senseSentence, stableRows, todayDone, wordDefOf } from './logic'
 
 const d = seedDemo('2026-11-14')
 
@@ -90,6 +91,67 @@ describe('forge logic', () => {
     const res = freshSentence(next, 'keep_faith', 'x')
     expect(res).toEqual({ s: 'She kept faith with her promise.', form: 'kept faith with', fresh: true })
     expect(maskParts(res.s, res.form!)).toEqual(['She ', ' her promise.'])
+  })
+
+  it('deduplicates sentences by normalized text in freshSentence and senseSentence', () => {
+    setSenseData({
+      scale: [
+        [
+          'scale#1',
+          'n.',
+          1,
+          '规模',
+          '事物的大小或程度',
+          'size',
+          'the size of something',
+          'The plan works at a small [[scale]].',
+          '  the plan works at a small [[scale]]. ',
+        ],
+        ['scale#2', 'n.', 1, '刻度', '测量刻度', 'measure', 'a mark for measuring', 'Check the [[scale]] carefully.', ''],
+      ],
+    })
+    const m = createPiece(
+      d,
+      'scale',
+      {
+        lemma: 'scale',
+        pos: 'n.',
+        sid: 'scale#1',
+        gloss: '规模',
+        tile: '规模',
+        en: 'the size of something',
+        ens: 'size',
+        senses: ['n. 规模', 'n. 刻度'],
+        alt: [{ s: 'The plan works at a small ___.', a: ['scale'] }],
+      },
+      '生词初见',
+      { pid: 'P1', wi: 0, doc: 'D', s: 'The plan works at a small scale.' },
+    )
+    expect(freshSentence(m, 'scale', 'a', false)).toEqual({ s: 'The plan works at a small scale.', fresh: false })
+    expect(senseSentence(m, 'scale', 'a')).toEqual({ s: 'The plan works at a small scale.', fresh: false, k: 1 })
+    setSenseData({
+      scale: [
+        [
+          'scale#1',
+          'n.',
+          1,
+          '规模',
+          '事物的大小或程度',
+          'size',
+          'the size of something',
+          'Nobody expected a disaster on this [[scale]].',
+          'Big [[scale]] projects require careful planning.',
+        ],
+        ['scale#2', 'n.', 1, '刻度', '测量刻度', 'measure', 'a mark for measuring', 'Check the [[scale]] carefully.', ''],
+      ],
+    })
+    const picked = new Set(
+      ['recallNew|0', 'fill|0', 'recallNew|1', 'fill|1', 'recallNew|2', 'fill|2', 'recallNew|3', 'fill|3'].map(
+        (tag) => freshSentence(m, 'scale', `scale|2026-11-14|${tag}`).s,
+      ),
+    )
+    expect(picked.size).toBe(2)
+    setSenseData({})
   })
 })
 

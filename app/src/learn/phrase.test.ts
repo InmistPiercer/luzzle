@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AppState, LearnRecord } from '../core/types'
+import { phraseMasked } from '../forge/PhraseCard'
+import { setSenseData } from '../lang/senses'
 import { newRecord } from './engine'
 import { accOf, applyPhrase, blankOf, fallbackPhrases, maskPhrase, phN, phraseFor, phraseGroups, seePhrase, taskOfPhrase } from './phrase'
 
@@ -75,5 +77,36 @@ describe('phrase progress', () => {
     d.learn = seePhrase(d.learn, 'a', D)
     d.learn = applyPhrase(d.learn, 'a', true, D)
     expect(phraseFor(d, 'c', '2026-11-22')).toBe('b')
+  })
+  it('uses built-in phrase ex1 on complete/write tasks when different and maskable, and srcSentence otherwise', () => {
+    setSenseData(
+      {},
+      {},
+      {
+        'take … for granted': [
+          'grant',
+          'grant#1',
+          '想当然',
+          '把某事视为理所当然',
+          'assume',
+          'fail to appreciate',
+          'Never [[take]] good health [[for]] [[granted]].',
+        ],
+        'grant access': ['grant', 'grant#2', '授予权限', '允许进入或使用', 'allow entry', 'allow entry to', 'Access denied here.'],
+      },
+    )
+    const d = base()
+    d.pieces.a = { ...d.pieces.a, s: 'She took that loyalty for granted.' }
+    d.pieces.b = { ...d.pieces.b, s: 'They will grant access tomorrow.' }
+    d.learn.a = rec({ occ: [{ pid: 'p1', doc: 'd', s: 'She took that loyalty for granted.' }] })
+    d.learn.b = rec({ occ: [{ pid: 'p2', doc: 'd', s: 'They will grant access tomorrow.' }] })
+    expect(phraseMasked(d, 'a', 'order')).toBe('She ___ that loyalty ___ ___.')
+    expect(phraseMasked(d, 'a', 'complete')).toBe('Never ___ good health ___ ___.')
+    expect(phraseMasked(d, 'a', 'write')).toBe('Never ___ good health ___ ___.')
+    expect(phraseMasked(d, 'b', 'write')).toBe('They will ___ ___ tomorrow.')
+    d.pieces.a = { ...d.pieces.a, s: 'Never take good health for granted.' }
+    d.learn.a = rec({ occ: [{ pid: 'p1', doc: 'd', s: 'Never take good health for granted.' }] })
+    expect(phraseMasked(d, 'a', 'complete')).toBe('Never ___ good health ___ ___.')
+    setSenseData({}, {}, {})
   })
 })
