@@ -8,7 +8,11 @@
 
 ## 在线体验与下载
 
-- **在线网页版**：部署后通过仓库右侧 **Deployments / GitHub Pages** 链接直接访问
+- **一键免配置在线体验版（推荐）**：[https://inmistpiercer.github.io/luzzle/demo/](https://inmistpiercer.github.io/luzzle/demo/)
+  - 预置 **3 篇演示文章**、**词汇拼块与词族连线**、四套视觉主题，并在「设置」中内置 **模拟次日 / 重置演示**，打开即可直接体验「读 · 拼 · 构 · 锻」完整闭环；
+  - 使用独立浏览器数据库（`luzzle-test`），与正式版完全隔离，不会污染个人词库。
+- **空白正式版（日常长期使用）**：[https://inmistpiercer.github.io/luzzle/](https://inmistpiercer.github.io/luzzle/)
+  - 干净空白词库，适合导入自己的 `EPUB / PDF / Markdown / TXT` 文档长期积累。
 - **桌面客户端（macOS `.dmg` / Windows `.exe`）**：前往本仓库 [Releases](../../releases) 页面下载对应系统安装包
 
 > **macOS 首次打开提示**：若提示无法验证开发者，请在访达中右键点击 `Luzzle.app` 选择 **打开**（或在「系统设置 → 隐私与安全性」中点击 **仍要打开**）。
@@ -48,11 +52,13 @@ npm install
 ### 网页版（Web）
 
 ```bash
-# 启动本地网页开发服务
+# 启动本地网页开发服务（空白正式版 / 预置演示版）
 npm run dev
+npm run dev:test
 
-# 构建静态生产包（输出至 app/dist/）
+# 构建静态生产包（正式版输出至 app/dist/，体验版输出至 app/dist-test/）
 npm run build
+npm run build:test
 
 # 运行全量单元测试与类型检查
 npm run typecheck && npm test

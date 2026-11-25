@@ -28,10 +28,18 @@ jobs:
       - run: npm --prefix app test
       - run: npm --prefix app run lint
       - run: npm --prefix app run build
+      - run: npm --prefix app run build:test
+      - name: Assemble GitHub Pages bundle (/ + /demo/)
+        run: |
+          rm -rf app/dist-pages
+          cp -a app/dist app/dist-pages
+          cp -a app/dist-test app/dist-pages/demo
+          test -f app/dist-pages/index.html
+          test -f app/dist-pages/demo/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app/dist
+          path: app/dist-pages
 
   deploy:
     needs: build

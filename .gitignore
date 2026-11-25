@@ -26,6 +26,7 @@ materials/
 app/node_modules/
 app/dist/
 app/dist-test/
+app/dist-pages/
 app/release/
 app/raw/
 app/data/
